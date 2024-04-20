@@ -55,7 +55,7 @@
                         <option value="gpay">Google Pay</option>
                     </select>
                 </div>
-                <button class="btn btn-success" id="submit-button">Submit</button>
+                <button class="btn btn-success" id="submit-button" disabled>Submit</button>
             </div>
         </div>
         <hr>
@@ -113,13 +113,14 @@
             fetchSummary();
 
             let totalPrice = 0;
-            
+
             $('.add-item').click(function() {
                 const itemName = $(this).data('name');
                 const itemPrice = $(this).data('price');
                 totalPrice += parseFloat(itemPrice);
                 $('#selected-items').append(`<li>${itemName} - ${itemPrice} <button class="btn btn-danger remove-item">Remove</button></li>`);
                 $('#total-price').text(totalPrice.toFixed(2));
+                checkItemsAdded(); // Check if items are added
             });
 
             $('#selected-items').on('click', '.remove-item', function() {
@@ -127,6 +128,7 @@
                 totalPrice -= removedPrice;
                 $(this).parent().remove();
                 $('#total-price').text(totalPrice.toFixed(2));
+                checkItemsAdded(); // Check if items are added
             });
 
             $('#payment-mode').change(function() {
@@ -171,12 +173,21 @@
 
             // Add this script to handle delete latest transaction button click
             $('#delete-latest-btn').click(function() {
-             $.post('/delete-latest-transaction', function(response) {
-                console.log(response);
-                // After deletion, fetch recent transactions and update the area
-                fetchRecentTransactions();
+                $.post('/delete-latest-transaction', function(response) {
+                    console.log(response);
+                    // After deletion, fetch recent transactions and update the area
+                    fetchRecentTransactions();
                 });
             });
+
+            // Function to check if items are added
+            function checkItemsAdded() {
+                const itemsAdded = $('#selected-items li').length > 0;
+                $('#submit-button').prop('disabled', !itemsAdded); // Disable/enable submit button based on items added
+                if (!itemsAdded) {
+                    alert('Please add at least one item before submitting.');
+                }
+            }
         });
     </script>
 </body>
