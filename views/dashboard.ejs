@@ -60,9 +60,29 @@
         </div>
         <hr>
         <h3>Recent Transactions</h3>
-        <ul id="recent-transactions">
-            <!-- Transactions will be dynamically added here -->
-        </ul>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Items</th>
+                    <th>Price</th>
+                    <th>Payment Mode</th>
+                    <th>Google Pay Name</th>
+                    <th>Google Pay Phone</th>
+                </tr>
+            </thead>
+            <tbody id="recent-transactions">
+                <!-- Transactions will be dynamically added here -->
+            </tbody>
+        </table>
+        <!-- Add this button inside the recent transactions area -->
+        <button class="btn btn-danger" id="delete-latest-btn">Delete Latest Transaction</button>
+
+    </div>
+
+    <div class="container">
+        <h3>Summary</h3>
+        <div>Total amount collected via Google Pay: <span id="gpay-amount">0</span></div>
+        <div>Total amount collected via Cash: <span id="cash-amount">0</span></div>
     </div>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
@@ -73,13 +93,24 @@
                 $.get('/recent-transactions', function(transactions) {
                     $('#recent-transactions').empty(); // Clear existing transactions
                     transactions.forEach(function(transaction) {
-                        $('#recent-transactions').append(`<li>${transaction}</li>`);
+                        $('#recent-transactions').append(`<tr><td>${transaction['Items']}</td><td>${transaction['Price']}</td><td>${transaction['Payment Mode']}</td><td>${transaction['GPAY Name']}</td><td>${transaction['Phone No']}</td></tr>`);
                     });
                 });
             }
             
             // Fetch recent transactions when the page loads
             fetchRecentTransactions();
+
+            // Function to fetch summary
+            function fetchSummary() {
+                $.get('/summary', function(summary) {
+                    $('#gpay-amount').text(summary.gpayAmount.toFixed(2));
+                    $('#cash-amount').text(summary.cashAmount.toFixed(2));
+                });
+            }
+
+            // Fetch summary when the page loads
+            fetchSummary();
 
             let totalPrice = 0;
             
@@ -133,6 +164,17 @@
                     $('#payment-mode').val('cash');
                     // Fetch recent transactions after submission
                     fetchRecentTransactions();
+                    // Fetch summary after submission
+                    fetchSummary();
+                });
+            });
+
+            // Add this script to handle delete latest transaction button click
+            $('#delete-latest-btn').click(function() {
+             $.post('/delete-latest-transaction', function(response) {
+                console.log(response);
+                // After deletion, fetch recent transactions and update the area
+                fetchRecentTransactions();
                 });
             });
         });

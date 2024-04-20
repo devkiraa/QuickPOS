@@ -1,6 +1,5 @@
 Items,Price,Payment Mode,GPAY Name,Phone No
-Items: Pizza, Burger, Pasta, Price: 25.47, Payment Mode: gpay, Google Pay Name: Meenu, Google Pay Phone: 8301032641
-Items: Pizza, Price: 36.46, Payment Mode: cash, Google Pay Name: null, Google Pay Phone: null
-Items: Pizza, Burger, Pasta, Price: 25.47, Payment Mode: gpay, Google Pay Name: Sabhyam, Google Pay Phone: 9633149771
-Pizza, Burger, Pasta,25.47,cash,null,null
-Pizza,Burger,Pasta,25.47,cash,,
+Pizza - Burger - Pasta,49.44,gpay,Kiran S,9446565036
+Salad - Pasta - Burger,21.47,cash,N/A,N/A
+Burger - Pasta - Salad,21.47,cash,N/A,N/A
+Salad,6.99,cash,N/A,N/A

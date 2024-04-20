@@ -11,8 +11,27 @@ const PORT = process.env.PORT || 3000;
 app.use(express.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 
+// Function to calculate summary
+function calculateSummary() {
+    let gpayAmount = 0;
+    let cashAmount = 0;
+    fs.createReadStream('export.csv')
+        .pipe(csvParser())
+        .on('data', (row) => {
+            if (row['Payment Mode'] === 'gpay') {
+                gpayAmount += parseFloat(row['Price']);
+            } else {
+                cashAmount += parseFloat(row['Price']);
+            }
+        })
+        .on('end', () => {
+            fs.writeFileSync('summary.json', JSON.stringify({ gpayAmount, cashAmount }));
+        });
+}
+
 // Routes
 app.get('/', (req, res) => {
+    calculateSummary();
     // Read items.csv and render dashboard
     const items = [];
     fs.createReadStream('items.csv')
@@ -25,31 +44,45 @@ app.get('/', (req, res) => {
         });
 });
 
+// Route to handle item submission
 app.post('/submit', (req, res) => {
     // Handle item submission
     const { items, price, paymentMode, gpayName, gpayPhone } = req.body;
 
-    // Process the submitted data (save to database, etc.)
-    console.log('Submitted Items:', items);
-    console.log('Total Price:', price);
-    console.log('Payment Mode:', paymentMode);
-    console.log('Google Pay Name:', gpayName);
-    console.log('Google Pay Phone:', gpayPhone);
-
     // Prepare the transaction data for CSV
-    let transaction = `${items},${price},${paymentMode},${gpayName},${gpayPhone}\n`;
+    let transactionItems = items.join(' - '); // Join items with hyphen
+    let transaction = `${transactionItems},${price},${paymentMode},${gpayName || 'N/A'},${gpayPhone || 'N/A'}`;
 
-    // Update export.csv with the transaction
-    fs.appendFile('export.csv', transaction, (err) => {
+    // Check if export.csv exists
+    fs.access('export.csv', fs.constants.F_OK, (err) => {
         if (err) {
-            console.error('Error writing to export.csv:', err);
-            res.status(500).send('Error submitting items');
+            // If export.csv does not exist, write the transaction data directly
+            fs.writeFile('export.csv', transaction + '\n', (err) => {
+                if (err) {
+                    console.error('Error writing to export.csv:', err);
+                    res.status(500).send('Error submitting items');
+                } else {
+                    console.log('Items submitted successfully');
+                    res.send('Items submitted successfully');
+                    calculateSummary();
+                }
+            });
         } else {
-            console.log('Items submitted successfully');
-            res.send('Items submitted successfully');
+            // If export.csv exists, append the transaction data to the file
+            fs.appendFile('export.csv', '\n' + transaction, (err) => {
+                if (err) {
+                    console.error('Error writing to export.csv:', err);
+                    res.status(500).send('Error submitting items');
+                } else {
+                    console.log('Items submitted successfully');
+                    res.send('Items submitted successfully');
+                    calculateSummary();
+                }
+            });
         }
     });
 });
+
 
 // Route to fetch recent transactions
 app.get('/recent-transactions', (req, res) => {
@@ -61,18 +94,24 @@ app.get('/recent-transactions', (req, res) => {
             transactions.push(row);
         })
         .on('end', () => {
-            res.json(transactions);
+            res.json(transactions.slice(-5)); // Get the latest 5 transactions
         });
 });
+// Route to delete the latest transaction
+app.post('/delete-latest-transaction', (req, res) => {
+    // Read export.csv, remove the last transaction, and rewrite the file
+    const lines = fs.readFileSync('export.csv', 'utf-8').trim().split('\n');
+    lines.pop(); // Remove the last line (latest transaction)
+    fs.writeFileSync('export.csv', lines.join('\n'));
+    console.log('Latest transaction deleted');
+    res.send('Latest transaction deleted successfully');
+});
 
-// Route to remove a specific transaction
-app.post('/remove-transaction', (req, res) => {
-    const { transaction } = req.body;
-    // Read export.csv, remove the specified transaction, and rewrite the file
-    const lines = fs.readFileSync('export.csv', 'utf-8').split('\n');
-    const updatedLines = lines.filter(line => !line.includes(transaction));
-    fs.writeFileSync('export.csv', updatedLines.join('\n'));
-    res.send('Transaction removed successfully');
+
+// Route to get summary
+app.get('/summary', (req, res) => {
+    const summary = JSON.parse(fs.readFileSync('summary.json'));
+    res.json(summary);
 });
 
 // Start server
