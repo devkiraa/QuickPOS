@@ -25,8 +25,15 @@
     <div class="container">
         <h1>Dashboard</h1><br>
         <div class="row">
+            <% let itemTypes = {}; %>
+            <% items.forEach(item => { %>
+            <% if (!itemTypes[item.item_type]) itemTypes[item.item_type] = []; %>
+            <% itemTypes[item.item_type].push(item); %>
+            <% }); %>
+
+            <% Object.keys(itemTypes).forEach(itemType => { %>
             <div class="col">
-                <h3>Items</h3>
+            <h3><%= itemType %></h3>
                 <table class="table">
                     <thead>
                         <tr>
@@ -35,65 +42,86 @@
                             <th></th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <% items.forEach(item => { %>
-                            <tr>
-                                <td><%= item.item_name %></td>
-                                <td><%= item.item_price %></td>
-                                <td>
-                                    <button class="btn btn-primary add-item" data-name="<%= item.item_name %>" data-price="<%= item.item_price %>">Add</button>
-                                </td>
-                            </tr>
-                        <% }); %>
-                    </tbody>
-                </table>
-            </div>
-            <div class="col">
-                <h3>Selected Items</h3>
-                <ul id="selected-items"></ul>
-                <div>Total Price: <span id="total-price">0</span></div>
-                <div class="form-group d-none" id="gpay-details">
-                    <label for="gpay-name">Name:</label>
-                    <input type="text" class="form-control" id="gpay-name" placeholder="Enter Name">
-                    <label for="gpay-phone">Phone Number:</label>
-                    <input type="text" class="form-control" id="gpay-phone" placeholder="Enter Phone Number">
-                </div>
-                <div class="form-group">
-                    <label for="payment-mode">Payment Mode:</label>
-                    <select class="form-control" id="payment-mode">
-                        <option value="cash">Cash</option>
-                        <option value="gpay">Google Pay</option>
-                    </select>
-                </div>
-                <button class="btn btn-success" id="submit-button" disabled>Submit</button>
-            </div>
-        </div>
-        <hr>
-        <h3>Recent Transactions</h3>
+                <tbody>
+                    <% itemTypes[itemType].forEach(item => { %>
+                        <tr>
+                            <td><%= item.item_name %></td>
+                            <td><%= item.item_price %></td>
+                        <td>
+                            <button class="btn btn-primary add-item" data-name="<%= item.item_name %>" data-price="<%= item.item_price %>">Add</button>
+                        </td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+<% }); %>
+</div>
+
+<!-- Move the "Selected Items" section outside of the "Items" area -->
+<div class="row">
+    <div class="col">
+        <h3>Selected Items</h3>
         <table class="table">
             <thead>
                 <tr>
-                    <th>Items</th>
+                    <th>Item Name</th>
                     <th>Price</th>
-                    <th>Payment Mode</th>
-                    <th>Google Pay Name</th>
-                    <th>Google Pay Phone</th>
+                    <th>Action</th>
                 </tr>
             </thead>
-            <tbody id="recent-transactions">
-                <!-- Transactions will be dynamically added here -->
+            <tbody id="selected-items">
+                <!-- Selected items will be added here as rows -->
             </tbody>
         </table>
-        <!-- Add this button inside the recent transactions area -->
-        <button class="btn btn-danger" id="delete-latest-btn">Delete Latest Transaction</button>
-
+        <div>Total Price: <span id="total-price">0</span></div>
+        <div class="form-group d-none" id="gpay-details">
+            <label for="gpay-name">Name:</label>
+            <input type="text" class="form-control" id="gpay-name" placeholder="Enter Name">
+            <label for="gpay-phone">Phone Number:</label>
+            <input type="text" class="form-control" id="gpay-phone" placeholder="Enter Phone Number" maxlength="10">
+        </div>
+        <div class="form-group" id="cash-details">
+            <label for="cash-name">Name:</label>
+            <input type="text" class="form-control" id="cash-name" placeholder="Enter Name">
+        </div>
+        <div class="form-group">
+            <label for="payment-mode">Payment Mode:</label>
+            <select class="form-control" id="payment-mode">
+                <option value="cash">Cash</option>
+                <option value="gpay">Google Pay</option>
+            </select>
+        </div>
+        <button class="btn btn-success" id="submit-button" disabled>Submit</button>
     </div>
+</div>
 
-    <div class="container">
-        <h3>Summary</h3>
-        <div>Total amount collected via Google Pay: <span id="gpay-amount">0</span></div>
-        <div>Total amount collected via Cash: <span id="cash-amount">0</span></div>
-    </div>
+<hr>
+<h3>Recent Transactions</h3>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Items</th>
+            <th>Price</th>
+            <th>Payment Mode</th>
+            <th>Google Pay Name</th>
+            <th>Google Pay Phone</th>
+        </tr>
+    </thead>
+    <tbody id="recent-transactions">
+        <!-- Transactions will be dynamically added here -->
+    </tbody>
+</table>
+<!-- Add this button inside the recent transactions area -->
+<button class="btn btn-danger" id="delete-latest-btn">Delete Latest Transaction</button>
+</div>
+
+<div class="container">
+    <h3>Summary</h3>
+    <div>Total amount collected via Google Pay: <span id="gpay-amount">0</span></div>
+    <div>Total amount collected via Cash: <span id="cash-amount">0</span></div>
+</div>
+
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script>
@@ -110,6 +138,7 @@
             
             // Fetch recent transactions when the page loads
             fetchRecentTransactions();
+
 
             // Function to fetch summary
             function fetchSummary() {
@@ -128,15 +157,15 @@
                 const itemName = $(this).data('name');
                 const itemPrice = $(this).data('price');
                 totalPrice += parseFloat(itemPrice);
-                $('#selected-items').append(`<li>${itemName} - ${itemPrice} <button class="btn btn-danger remove-item">Remove</button></li>`);
+                $('#selected-items').append(`<tr><td>${itemName}</td><td>${itemPrice}</td><td><button class="btn btn-danger remove-item">Remove</button></td></tr>`);
                 $('#total-price').text(totalPrice.toFixed(2));
                 checkItemsAdded(); // Check if items are added
             });
 
             $('#selected-items').on('click', '.remove-item', function() {
-                const removedPrice = parseFloat($(this).parent().text().split(' - ')[1]);
+                const removedPrice = parseFloat($(this).parent().prev().text());
                 totalPrice -= removedPrice;
-                $(this).parent().remove();
+                $(this).closest('tr').remove();
                 $('#total-price').text(totalPrice.toFixed(2));
                 checkItemsAdded(); // Check if items are added
             });
@@ -145,20 +174,32 @@
                 const paymentMode = $(this).val();
                 if (paymentMode === 'gpay') {
                     $('#gpay-details').removeClass('d-none');
+                    $('#cash-details').addClass('d-none'); // Hide cash details
+                    $('#gpay-phone').closest('.form-group').removeClass('d-none'); // Show phone number field
                 } else {
                     $('#gpay-details').addClass('d-none');
+                    $('#cash-details').removeClass('d-none'); // Show cash details
+                    $('#gpay-phone').closest('.form-group').addClass('d-none'); // Hide phone number field
                 }
             });
 
             $('#submit-button').click(function() {
                 const items = [];
-                $('#selected-items li').each(function() {
-                    items.push($(this).text().split(' - ')[0]);
+                $('#selected-items tr').each(function() {
+                    const itemName = $(this).find('td:first-child').text();
+                    const itemPrice = $(this).find('td:nth-child(2)').text();
+                    items.push(`${itemName} - ${itemPrice}`);
                 });
                 const totalPrice = parseFloat($('#total-price').text());
                 const paymentMode = $('#payment-mode').val();
-                const gpayName = $('#gpay-name').val();
-                const gpayPhone = $('#gpay-phone').val();
+                let gpayName = '';
+                let gpayPhone = '';
+                if (paymentMode === 'gpay') {
+                    gpayName = $('#gpay-name').val();
+                    gpayPhone = $('#gpay-phone').val();
+                } else {
+                    gpayName = $('#cash-name').val(); // Get name for cash payment mode
+                }
                 const data = {
                     items: items,
                     price: totalPrice,
@@ -173,6 +214,7 @@
                     $('#total-price').text('0');
                     $('#gpay-name').val('');
                     $('#gpay-phone').val('');
+                    $('#cash-name').val(''); // Clear name for cash payment mode
                     $('#payment-mode').val('cash');
                     // Fetch recent transactions after submission
                     fetchRecentTransactions();
@@ -180,6 +222,8 @@
                     fetchSummary();
                 });
             });
+            
+            
 
             // Add this script to handle delete latest transaction button click
             $('#delete-latest-btn').click(function() {
@@ -188,15 +232,29 @@
                     // After deletion, fetch recent transactions and update the area
                     fetchRecentTransactions();
                 });
-            });
+            })
 
             // Function to check if items are added
             function checkItemsAdded() {
-                const itemsAdded = $('#selected-items li').length > 0;
+                const itemsAdded = $('#selected-items tr').length > 0;
                 $('#submit-button').prop('disabled', !itemsAdded); // Disable/enable submit button based on items added
                 if (!itemsAdded) {
                     alert('Please add at least one item before submitting.');
                 }
+            }
+        });
+        // Capitalize the first letter of each word in the name field
+        document.getElementById("gpay-name").addEventListener("input", function(event) {
+            let name = event.target.value;
+            name = name.toLowerCase().replace(/\b(\w)/g, (char) => char.toUpperCase());
+            event.target.value = name;
+        });
+
+        // Limit the phone number field to 10 characters
+        document.getElementById("gpay-phone").addEventListener("input", function(event) {
+            let phone = event.target.value;
+            if (phone.length > 10) {
+                event.target.value = phone.slice(0, 10);
             }
         });
     </script>

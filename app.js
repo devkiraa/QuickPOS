@@ -29,6 +29,11 @@ function calculateSummary() {
         });
 }
 
+// Function to generate a unique order ID
+function generateOrderId() {
+    return Math.floor(Math.random() * 1000000); // Simple random order ID generation
+}
+
 // Routes
 app.get('/', (req, res) => {
     calculateSummary();
@@ -49,9 +54,12 @@ app.post('/submit', (req, res) => {
     // Handle item submission
     const { items, price, paymentMode, gpayName, gpayPhone } = req.body;
 
+    // Generate a unique order ID
+    const orderId = generateOrderId();
+
     // Prepare the transaction data for CSV
     let transactionItems = items.join(' - '); // Join items with hyphen
-    let transaction = `${transactionItems},${price},${paymentMode},${gpayName || 'N/A'},${gpayPhone || 'N/A'}`;
+    let transaction = `${orderId},${transactionItems},${price},${paymentMode},${gpayName || 'N/A'},${gpayPhone || 'N/A'}`;
 
     // Check if export.csv exists
     fs.access('export.csv', fs.constants.F_OK, (err) => {
@@ -81,8 +89,91 @@ app.post('/submit', (req, res) => {
             });
         }
     });
+
+    // Prepare the order data for CSV
+    let orderData = `${orderId},${transactionItems},${gpayName || 'N/A'},Not Completed`;
+
+    // Append the order data to orders.csv
+    fs.appendFile('orders.csv', '\n' + orderData, (err) => {
+        if (err) {
+            console.error('Error writing to orders.csv:', err);
+        } else {
+            console.log('Order details updated in orders.csv');
+        }
+    });
 });
 
+// Route to display orders
+app.get('/orders', (req, res) => {
+    // Read orders from orders.csv and render orders page
+    const orders = [];
+    fs.createReadStream('orders.csv')
+        .pipe(csvParser())
+        .on('data', (row) => {
+            orders.push(row);
+        })
+        .on('end', () => {
+            // Filter out completed orders
+            const filteredOrders = orders.filter(order => order['Status'] !== 'Completed');
+            res.render('orders', { orders: filteredOrders });
+        });
+});
+
+// Route to handle item submission
+// Route to handle item submission
+app.post('/submit', (req, res) => {
+    // Handle item submission
+    const { items, price, paymentMode, gpayName, gpayPhone } = req.body;
+
+    // Generate a unique order ID
+    const orderId = generateOrderId();
+
+    // Prepare the transaction items
+    const transactionItems = items.join(' - ');
+
+    // Prepare the order data for CSV
+    const orderData = `${orderId},${transactionItems},${gpayName || 'N/A'},Not Completed`;
+
+    // Append the order data to orders.csv
+    fs.appendFile('orders.csv', '\n' + orderData, (err) => {
+        if (err) {
+            console.error('Error writing to orders.csv:', err);
+            res.status(500).send('Error submitting items');
+        } else {
+            console.log('Order details updated in orders.csv');
+
+            // Prepare the transaction data for CSV
+            const transaction = `${orderId},${transactionItems},${price},${paymentMode},${gpayName || 'N/A'},${gpayPhone || 'N/A'}`;
+
+            // Check if export.csv exists
+            fs.access('export.csv', fs.constants.F_OK, (err) => {
+                if (err) {
+                    // If export.csv does not exist, write the transaction data directly
+                    fs.writeFile('export.csv', transaction + '\n', (err) => {
+                        if (err) {
+                            console.error('Error writing to export.csv:', err);
+                        } else {
+                            console.log('Items submitted successfully');
+                            calculateSummary();
+                        }
+                    });
+                } else {
+                    // If export.csv exists, append the transaction data to the file
+                    fs.appendFile('export.csv', '\n' + transaction, (err) => {
+                        if (err) {
+                            console.error('Error writing to export.csv:', err);
+                        } else {
+                            console.log('Items submitted successfully');
+                            calculateSummary();
+                        }
+                    });
+                }
+            });
+
+            res.send('Items submitted successfully');
+        }
+    });
+});
 
 // Route to fetch recent transactions
 app.get('/recent-transactions', (req, res) => {
@@ -94,9 +185,40 @@ app.get('/recent-transactions', (req, res) => {
             transactions.push(row);
         })
         .on('end', () => {
-            res.json(transactions.slice(-5)); // Get the latest 5 transactions
+            res.json(transactions);
         });
 });
+
+// Route to mark an order as complete
+app.post('/complete-order', (req, res) => {
+    const orderId = req.body.orderId;
+    const orders = [];
+
+    // Read orders from orders.csv and update the status of the specified order
+    fs.createReadStream('orders.csv')
+        .pipe(csvParser())
+        .on('data', (row) => {
+            // Update the status of the order with the specified orderId
+            if (row['Order ID'] === orderId) {
+                row['Status'] = 'Completed';
+            }
+            orders.push(row);
+        })
+        .on('end', () => {
+            // Rewrite orders.csv with updated orders
+            const writer = fs.createWriteStream('orders.csv');
+            writer.write('Order ID,Items,GPAY Name,Status\n'); // Write the header
+            orders.forEach((order) => {
+                writer.write(`${order['Order ID']},${order['Items']},${order['GPAY Name']},${order['Status']}\n`);
+            });
+            writer.end();
+            console.log(`Order ${orderId} marked as completed`);
+            res.json({ success: true });
+        });
+});
+
+
+
 // Route to delete the latest transaction
 app.post('/delete-latest-transaction', (req, res) => {
     // Read export.csv, remove the last transaction, and rewrite the file
@@ -107,14 +229,7 @@ app.post('/delete-latest-transaction', (req, res) => {
     res.send('Latest transaction deleted successfully');
 });
 
-
-// Route to get summary
-app.get('/summary', (req, res) => {
-    const summary = JSON.parse(fs.readFileSync('summary.json'));
-    res.json(summary);
-});
-
-// Start server
+// Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });

@@ -1,2 +1,4 @@
-Items,Price,Payment Mode,GPAY Name,Phone No
-Brownie Bite Shake (S) - Brownie Bite Shake (L) - Sambaram - Passion fruit Mojito (S) - Passion fruit Mojito (L) - Lessi - Milk Sarbath,205,gpay,Suraj,6266327351
+Order ID,Items,Price,Payment Mode,GPAY Name,Phone No
+872203,Green apple Delight (L) - 30 - Pineapple uppilittath - 15,45,gpay,N/A,9446565036
+408464,Cookie & Cream  - 5 - Porotta + Chana masala - 60,65,cash,kiran s,N/A
+767261,Mango Mojito (L) - 35 - Kurkure Chat - 15,50,cash,Kiran S,N/A

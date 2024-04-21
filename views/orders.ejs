@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        /* Custom CSS for unique UI */
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            line-height: 1.5;
+            border-radius: 0.2rem;
+        }
+        .btn-sm.complete-order {
+            background-color: #28a745; /* Green */
+            border-color: #28a745;
+        }
+        .btn-sm.complete-order:hover {
+            background-color: #218838; /* Darker green */
+            border-color: #1e7e34;
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Orders</h1>
+        <table class="table table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Order ID</th>
+                    <th>Items</th>
+                    <th>GPAY Name</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% orders.forEach((order) => { %>
+                    <tr>
+                        <td><%= order['Order ID'] %></td>
+                        <td><%= order['Items'] %></td>
+                        <td><%= order['GPAY Name'] %></td>
+                        <td><%= order['Status'] %></td>
+                        <td>
+                            <% if (order['Status'] !== 'Completed') { %>
+                                <button class="btn btn-sm btn-success complete-order" data-orderid="<%= order['Order ID'] %>">Complete</button>
+                            <% } else { %>
+                                <span class="badge badge-success">Completed</span>
+                            <% } %>
+                        </td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            $('.complete-order').click(function() {
+                const orderId = $(this).data('orderid');
+                $.post('/complete-order', { orderId }, function(data, status) {
+                    if (data.success) {
+                        // Reload the page upon successful completion
+                        location.reload();
+                    } else {
+                        alert('Failed to complete the order. Please try again.');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
