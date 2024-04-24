@@ -70,8 +70,8 @@ app.post('/submit', (req, res) => {
                     console.error('Error writing to export.csv:', err);
                     res.status(500).send('Error submitting items');
                 } else {
-                    console.log('Items submitted successfully');
-                    res.send('Items submitted successfully');
+                    console.log(gpayName+' have ordered an item');//Items submitted successfully
+                    res.send(gpayName+' have ordered an item');//Items submitted successfully
                     calculateSummary();
                 }
             });
@@ -82,8 +82,8 @@ app.post('/submit', (req, res) => {
                     console.error('Error writing to export.csv:', err);
                     res.status(500).send('Error submitting items');
                 } else {
-                    console.log('Items submitted successfully');
-                    res.send('Items submitted successfully');
+                    console.log(gpayName+' have ordered an item');//Items submitted successfully
+                    res.send(gpayName+' have ordered an item');//Items submitted successfully
                     calculateSummary();
                 }
             });
@@ -177,7 +177,7 @@ app.post('/submit', (req, res) => {
 
 // Route to fetch recent transactions
 app.get('/recent-transactions', (req, res) => {
-    // Read recent transactions from export.csv and send to client
+    // Read recent transactions from export.csv and send the last 10 transactions to client
     const transactions = [];
     fs.createReadStream('export.csv')
         .pipe(csvParser())
@@ -185,9 +185,11 @@ app.get('/recent-transactions', (req, res) => {
             transactions.push(row);
         })
         .on('end', () => {
-            res.json(transactions);
+            const lastTenTransactions = transactions.slice(-10); // Limit to last 10 transactions
+            res.json(lastTenTransactions);
         });
 });
+
 
 // Route to mark an order as complete
 app.post('/complete-order', (req, res) => {
@@ -215,6 +217,42 @@ app.post('/complete-order', (req, res) => {
             console.log(`Order ${orderId} marked as completed`);
             res.json({ success: true });
         });
+});
+
+// Function to calculate summary
+function calculateSummary() {
+    let gpayAmount = 0;
+    let cashAmount = 0;
+    fs.createReadStream('export.csv')
+        .pipe(csvParser())
+        .on('data', (row) => {
+            const paymentMode = row['Payment Mode'];
+            const price = parseFloat(row['Price']);
+            if (paymentMode === 'gpay') {
+                gpayAmount += price;
+            } else if (paymentMode === 'cash') {
+                cashAmount += price;
+            }
+        })
+        .on('end', () => {
+            // Write summary to summary.json
+            fs.writeFile('summary.json', JSON.stringify({ gpayAmount, cashAmount }), (err) => {
+                if (err) {
+                    console.error('Error writing summary:', err);
+                } else {
+                    console.log('---------------------------');//Summary updated successfully
+                }
+            });
+        });
+}
+
+
+// Route to fetch summary
+// Route to fetch summary
+app.get('/summary', (req, res) => {
+    // Read summary from summary.json and send to client
+    const summaryData = JSON.parse(fs.readFileSync('summary.json', 'utf-8'));
+    res.json(summaryData);
 });
 
 
