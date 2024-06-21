@@ -1,263 +1,232 @@
-<!-- views/dashboard.ejs -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Food Billing System</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <title>Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
     <style>
-        /* Custom CSS styles */
-        /* Reduce the size of the add button */
-        .add-item {
-            padding: 0.25rem 0.5rem; /* Adjust padding to reduce button size */
-            font-size: 0.8rem; /* Reduce font size */
+        .primary-color {
+            background-color: #FC8019;
         }
-    
-        /* Adjust spacing between table rows */
-        .table tbody tr {
-            margin-bottom: 0.5rem; /* Adjust margin bottom */
+        .primary-color-text {
+            color: #FC8019;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>Dashboard</h1><br>
-        <div class="row">
-            <% let itemTypes = {}; %>
-            <% items.forEach(item => { %>
-            <% if (!itemTypes[item.item_type]) itemTypes[item.item_type] = []; %>
-            <% itemTypes[item.item_type].push(item); %>
-            <% }); %>
+<body class="bg-gray-100">
 
-            <% Object.keys(itemTypes).forEach(itemType => { %>
-            <div class="col">
-            <h3><%= itemType %></h3>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Item Name</th>
-                            <th>Price</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                <tbody>
-                    <% itemTypes[itemType].forEach(item => { %>
-                        <tr>
-                            <td><%= item.item_name %></td>
-                            <td><%= item.item_price %></td>
-                        <td>
-                            <button class="btn btn-primary add-item" data-name="<%= item.item_name %>" data-price="<%= item.item_price %>">Add</button>
-                        </td>
-                    </tr>
+    <div class="flex flex-col md:flex-row">
+        <!-- Sidebar -->
+        <div class="w-full md:w-1/5 bg-gray-200 h-screen p-4">
+            <div class="mb-5">
+                <img src="path/to/logo.png" alt="Logo" class="w-12 h-12 mb-3">
+                <h1 class="text-2xl font-semibold">Welcome, <%= username %></h1>
+                <p class="text-sm text-gray-600">Discover whatever you need easily</p>
+            </div>
+            <ul class="space-y-4">
+                <li><a href="/" class="flex items-center p-2 text-gray-700 hover:bg-gray-300 rounded"><i class="fas fa-home mr-3"></i>Dashboard</a></li>
+                <li><a href="/orders" class="flex items-center p-2 text-gray-700 hover:bg-gray-300 rounded"><i class="fas fa-box mr-3"></i>Orders</a></li>
+                <li><a href="#" id="settings-link" class="flex items-center p-2 text-gray-700 hover:bg-gray-300 rounded"><i class="fas fa-cog mr-3"></i>Settings</a></li>
+                <li><a href="/logout" class="flex items-center p-2 text-gray-700 hover:bg-gray-300 rounded"><i class="fas fa-sign-out-alt mr-3"></i>Logout</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="w-full md:w-4/5 p-10">
+            <div class="flex justify-between items-center mb-5">
+                <h2 class="text-3xl font-bold primary-color-text">Welcome, <%= username %></h2>
+                <div class="flex items-center space-x-2">
+                    <input type="text" placeholder="Search product..." class="p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-color">
+                    <button class="p-2 primary-color text-white rounded-lg"><i class="fas fa-search"></i></button>
+                </div>
+            </div>
+
+            <div class="mb-5">
+                <ul class="flex flex-wrap space-x-2 space-y-2 md:space-y-0 md:space-x-4">
+                    <% const itemTypes = [...new Set(items.map(item => item.item_type))]; %>
+                    <li><button class="px-4 py-2 primary-color text-white rounded-lg focus:outline-none filter-button" data-type="All">All</button></li>
+                    <% itemTypes.forEach(type => { %>
+                        <li><button class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg focus:outline-none filter-button" data-type="<%= type %>"><%= type %></button></li>
+                    <% }); %>
+                </ul>
+            </div>
+
+            <div id="items-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <% items.forEach(item => { %>
+                <div class="bg-white p-3 rounded-lg shadow-lg item-card" data-type="<%= item.item_type %>">
+                    <img src="<%= item.item_image %>" alt="Product Image" class="w-full h-24 object-cover rounded mb-2">
+                    <h3 class="text-lg font-semibold mb-1"><%= item.item_name %></h3>
+                    <p class="text-gray-600 mb-1"><%= item.item_description %></p>
+                    <p class="text-md font-bold mb-1">$<%= item.item_price %></p>
+                    <button class="w-full py-1 primary-color text-white rounded-lg add-item" data-name="<%= item.item_name %>" data-price="<%= item.item_price %>">Add to Cart</button>
+                </div>
                 <% }); %>
-            </tbody>
-        </table>
+            </div>
+
+            <!-- Settings Section -->
+            <div id="settings-section" class="hidden">
+                <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+                    <h2 class="text-xl font-semibold mb-4">Account Details</h2>
+                    <form action="/update-account" method="post">
+                        <div class="mb-4">
+                            <label for="email" class="block text-gray-700">Email:</label>
+                            <input type="email" id="email" name="email" value="<%= userData.email %>" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div class="mb-4">
+                            <label for="phone" class="block text-gray-700">Phone:</label>
+                            <input type="text" id="phone" name="phone" value="<%= userData.phone %>" class="w-full p-2 border rounded-lg">
+                        </div>
+                        <button type="submit" class="primary-color text-white py-2 px-4 rounded-lg">Update Account</button>
+                    </form>
+                </div>
+
+                <div class="bg-white p-4 rounded-lg shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">Add Item</h2>
+                    <form action="/add-item" method="post" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="itemName" class="block text-gray-700">Item Name:</label>
+                            <input type="text" id="itemName" name="itemName" required class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div class="mb-4">
+                            <label for="itemPrice" class="block text-gray-700">Item Price:</label>
+                            <input type="text" id="itemPrice" name="itemPrice" required class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div class="mb-4">
+                            <label for="itemType" class="block text-gray-700">Item Type:</label>
+                            <input type="text" id="itemType" name="itemType" required class="w-full p-2 border rounded-lg">
+                        </div>
+                        <div class="mb-4">
+                            <label for="itemImage" class="block text-gray-700">Item Image:</label>
+                            <input type="file" id="itemImage" name="itemImage" required class="w-full p-2 border rounded-lg">
+                        </div>
+                        <button type="submit" class="primary-color text-white py-2 px-4 rounded-lg">Add Item</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Order -->
+        <div class="w-full md:w-1/5 bg-white p-5 h-screen">
+            <h3 class="text-xl font-semibold mb-4">Current Order</h3>
+            <div id="current-order" class="space-y-4">
+                <!-- Current order items will be dynamically added here -->
+            </div>
+            <div class="mt-6 p-4 bg-gray-100 rounded-lg shadow">
+                <div class="flex justify-between mb-2">
+                    <span>Subtotal:</span>
+                    <span id="subtotal">$0.00</span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span>Discount sales:</span>
+                    <span id="discount">-$0.00</span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span>Total sales tax:</span>
+                    <span id="tax">$0.00</span>
+                </div>
+                <div class="flex justify-between font-bold text-lg">
+                    <span>Total:</span>
+                    <span id="total">$0.00</span>
+                </div>
+                <button class="w-full mt-4 py-2 primary-color text-white rounded-lg">Continue to Payment</button>
+            </div>
+        </div>
     </div>
-<% }); %>
-</div>
-
-<!-- Move the "Selected Items" section outside of the "Items" area -->
-<div class="row">
-    <div class="col">
-        <h3>Selected Items</h3>
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Item Name</th>
-                    <th>Price</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="selected-items">
-                <!-- Selected items will be added here as rows -->
-            </tbody>
-        </table>
-        <div>Total Price: <span id="total-price">0</span></div>
-        <div class="form-group d-none" id="gpay-details">
-            <label for="gpay-name">Name:</label>
-            <input type="text" class="form-control" id="gpay-name" placeholder="Enter Name">
-            <label for="gpay-phone">Phone Number:</label>
-            <input type="text" class="form-control" id="gpay-phone" placeholder="Enter Phone Number" maxlength="10">
-        </div>
-        <div class="form-group" id="cash-details">
-            <label for="cash-name">Name:</label>
-            <input type="text" class="form-control" id="cash-name" placeholder="Enter Name">
-        </div>
-        <div class="form-group">
-            <label for="payment-mode">Payment Mode:</label>
-            <select class="form-control" id="payment-mode">
-                <option value="cash">Cash</option>
-                <option value="gpay">Google Pay</option>
-            </select>
-        </div>
-        <button class="btn btn-success" id="submit-button" disabled>Submit</button>
-    </div>
-</div>
-
-<hr>
-<h3>Recent Transactions</h3>
-<table class="table">
-    <thead>
-        <tr>
-            <th>Items</th>
-            <th>Price</th>
-            <th>Payment Mode</th>
-            <th>Google Pay Name</th>
-            <th>Google Pay Phone</th>
-        </tr>
-    </thead>
-    <tbody id="recent-transactions">
-        <!-- Transactions will be dynamically added here -->
-    </tbody>
-</table>
-<!-- Add this button inside the recent transactions area -->
-<button class="btn btn-danger" id="delete-latest-btn">Delete Latest Transaction</button>
-</div>
-
-<div class="container">
-    <h3>Summary</h3>
-    <div>Total amount collected via Google Pay: <span id="gpay-amount">0</span></div>
-    <div>Total amount collected via Cash: <span id="cash-amount">0</span></div>
-</div>
-
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script>
         $(document).ready(function() {
-            // Function to fetch recent transactions
-            function fetchRecentTransactions() {
-                $.get('/recent-transactions', function(transactions) {
-                    $('#recent-transactions').empty(); // Clear existing transactions
-                    const recentTransactions = transactions.slice(-10); // Limit to last 10 transactions
-                    recentTransactions.forEach(function(transaction) {
-                        $('#recent-transactions').append(`<tr><td>${transaction['Items']}</td><td>${transaction['Price']}</td><td>${transaction['Payment Mode']}</td><td>${transaction['GPAY Name']}</td><td>${transaction['Phone No']}</td></tr>`);
-                    });
-                });
-            }
-    
-            // Fetch recent transactions when the page loads
-            fetchRecentTransactions();
-
-
-            // Fetch summary when the page loads
-            $(document).ready(function() {
-            function fetchSummary() {
-            $.get('/summary', function(summary) {
-                $('#gpay-amount').text(summary.gpayAmount.toFixed(2));
-                $('#cash-amount').text(summary.cashAmount.toFixed(2));
-            });
-        }
-
-        fetchSummary(); // Initial fetch
-    });
-
             let totalPrice = 0;
 
+            // Filter items based on category
+            $('.filter-button').click(function() {
+                const type = $(this).data('type');
+                $('.filter-button').removeClass('primary-color text-white').addClass('bg-gray-300 text-gray-700');
+                $(this).addClass('primary-color text-white').removeClass('bg-gray-300 text-gray-700');
+                if (type === "All") {
+                    $('.item-card').show();
+                } else {
+                    $('.item-card').hide().filter(`[data-type="${type}"]`).show();
+                }
+            });
+
+            // Show settings section
+            $('#settings-link').click(function() {
+                $('#items-container').hide();
+                $('#settings-section').show();
+            });
+
+            // Add item to current order
             $('.add-item').click(function() {
                 const itemName = $(this).data('name');
-                const itemPrice = $(this).data('price');
-                totalPrice += parseFloat(itemPrice);
-                $('#selected-items').append(`<tr><td>${itemName}</td><td>${itemPrice}</td><td><button class="btn btn-danger remove-item">Remove</button></td></tr>`);
-                $('#total-price').text(totalPrice.toFixed(2));
-                checkItemsAdded(); // Check if items are added
-            });
-
-            $('#selected-items').on('click', '.remove-item', function() {
-                const removedPrice = parseFloat($(this).parent().prev().text());
-                totalPrice -= removedPrice;
-                $(this).closest('tr').remove();
-                $('#total-price').text(totalPrice.toFixed(2));
-                checkItemsAdded(); // Check if items are added
-            });
-
-            $('#payment-mode').change(function() {
-                const paymentMode = $(this).val();
-                if (paymentMode === 'gpay') {
-                    $('#gpay-details').removeClass('d-none');
-                    $('#cash-details').addClass('d-none'); // Hide cash details
-                    $('#gpay-phone').closest('.form-group').removeClass('d-none'); // Show phone number field
+                const itemPrice = parseFloat($(this).data('price'));
+                let currentItem = $(`#current-order div[data-name="${itemName}"]`);
+                if (currentItem.length) {
+                    let quantity = currentItem.find('.quantity').text();
+                    quantity = parseInt(quantity) + 1;
+                    currentItem.find('.quantity').text(quantity);
+                    currentItem.find('.total-price').text(`$${(itemPrice * quantity).toFixed(2)}`);
                 } else {
-                    $('#gpay-details').addClass('d-none');
-                    $('#cash-details').removeClass('d-none'); // Show cash details
-                    $('#gpay-phone').closest('.form-group').addClass('d-none'); // Hide phone number field
+                    $('#current-order').append(`
+                        <div class="flex justify-between items-center" data-name="${itemName}">
+                            <span>${itemName} (<span class="quantity">1</span>)</span>
+                            <div class="flex items-center space-x-2">
+                                <button class="bg-gray-300 text-gray-700 py-1 px-2 rounded decrease-quantity">-</button>
+                                <span class="total-price">$${itemPrice.toFixed(2)}</span>
+                                <button class="bg-gray-300 text-gray-700 py-1 px-2 rounded increase-quantity">+</button>
+                                <button class="bg-red-500 text-white py-1 px-2 rounded remove-item">Remove</button>
+                            </div>
+                        </div>
+                    `);
+                }
+                totalPrice += itemPrice;
+                $('#subtotal').text(`$${totalPrice.toFixed(2)}`);
+                $('#total').text(`$${totalPrice.toFixed(2)}`);
+            });
+
+            // Increase quantity
+            $('#current-order').on('click', '.increase-quantity', function() {
+                const parent = $(this).closest('div[data-name]');
+                const itemName = parent.data('name');
+                const itemPrice = parseFloat($(`.add-item[data-name="${itemName}"]`).data('price'));
+                let quantity = parent.find('.quantity').text();
+                quantity = parseInt(quantity) + 1;
+                parent.find('.quantity').text(quantity);
+                parent.find('.total-price').text(`$${(itemPrice * quantity).toFixed(2)}`);
+                totalPrice += itemPrice;
+                $('#subtotal').text(`$${totalPrice.toFixed(2)}`);
+                $('#total').text(`$${totalPrice.toFixed(2)}`);
+            });
+
+            // Decrease quantity
+            $('#current-order').on('click', '.decrease-quantity', function() {
+                const parent = $(this).closest('div[data-name]');
+                const itemName = parent.data('name');
+                const itemPrice = parseFloat($(`.add-item[data-name="${itemName}"]`).data('price'));
+                let quantity = parent.find('.quantity').text();
+                if (quantity > 1) {
+                    quantity = parseInt(quantity) - 1;
+                    parent.find('.quantity').text(quantity);
+                    parent.find('.total-price').text(`$${(itemPrice * quantity).toFixed(2)}`);
+                    totalPrice -= itemPrice;
+                    $('#subtotal').text(`$${totalPrice.toFixed(2)}`);
+                    $('#total').text(`$${totalPrice.toFixed(2)}`);
                 }
             });
 
-            $('#submit-button').click(function() {
-                const items = [];
-                $('#selected-items tr').each(function() {
-                    const itemName = $(this).find('td:first-child').text();
-                    const itemPrice = $(this).find('td:nth-child(2)').text();
-                    items.push(`${itemName} - ${itemPrice}`);
-                });
-                const totalPrice = parseFloat($('#total-price').text());
-                const paymentMode = $('#payment-mode').val();
-                let gpayName = '';
-                let gpayPhone = '';
-                if (paymentMode === 'gpay') {
-                    gpayName = $('#gpay-name').val();
-                    gpayPhone = $('#gpay-phone').val();
-                } else {
-                    gpayName = $('#cash-name').val(); // Get name for cash payment mode
-                }
-                const data = {
-                    items: items,
-                    price: totalPrice,
-                    paymentMode: paymentMode,
-                    gpayName: gpayName,
-                    gpayPhone: gpayPhone
-                };
-                $.post('/submit', data, function(response) {
-                    console.log(response);
-                    // Clear selected items and payment details
-                    $('#selected-items').empty();
-                    $('#total-price').text('0');
-                    $('#gpay-name').val('');
-                    $('#gpay-phone').val('');
-                    $('#cash-name').val(''); // Clear name for cash payment mode
-                    $('#payment-mode').val('cash');
-                    // Fetch recent transactions after submission
-                    fetchRecentTransactions();
-                    // Fetch summary after submission
-                    fetchSummary();
-                });
+            // Remove item
+            $('#current-order').on('click', '.remove-item', function() {
+                const parent = $(this).closest('div[data-name]');
+                const itemName = parent.data('name');
+                const itemPrice = parseFloat($(`.add-item[data-name="${itemName}"]`).data('price'));
+                const quantity = parseInt(parent.find('.quantity').text());
+                totalPrice -= itemPrice * quantity;
+                parent.remove();
+                $('#subtotal').text(`$${totalPrice.toFixed(2)}`);
+                $('#total').text(`$${totalPrice.toFixed(2)}`);
             });
-            
-            
-
-            // Add this script to handle delete latest transaction button click
-            $('#delete-latest-btn').click(function() {
-                $.post('/delete-latest-transaction', function(response) {
-                    console.log(response);
-                    // After deletion, fetch recent transactions and update the area
-                    fetchRecentTransactions();
-                });
-            })
-
-            // Function to check if items are added
-            function checkItemsAdded() {
-                const itemsAdded = $('#selected-items tr').length > 0;
-                $('#submit-button').prop('disabled', !itemsAdded); // Disable/enable submit button based on items added
-                if (!itemsAdded) {
-                    alert('Please add at least one item before submitting.');
-                }
-            }
-        });
-        // Capitalize the first letter of each word in the name field
-        document.getElementById("gpay-name").addEventListener("input", function(event) {
-            let name = event.target.value;
-            name = name.toLowerCase().replace(/\b(\w)/g, (char) => char.toUpperCase());
-            event.target.value = name;
-        });
-
-        // Limit the phone number field to 10 characters
-        document.getElementById("gpay-phone").addEventListener("input", function(event) {
-            let phone = event.target.value;
-            if (phone.length > 10) {
-                event.target.value = phone.slice(0, 10);
-            }
         });
     </script>
 </body>

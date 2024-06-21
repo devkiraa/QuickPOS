@@ -1,2 +1,5 @@
-node_modules
+#gitignore
 run.bat
+*.exe
+node_modules
+

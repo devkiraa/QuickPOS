@@ -1,3 +1,4 @@
-item_name,item_price,item_type
-BARCODE,70,Juice
-BARCODE,70,GROCERY
+item_name,item_price,item_type,item_image
+BARCODE,70,Juice,images/CSI.PNG
+BARCODE,70,GROCERY,images/CSI.PNG
+Cake,20,BAKERY,images/CSI.PNG

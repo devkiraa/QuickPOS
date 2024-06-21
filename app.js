@@ -1,21 +1,71 @@
-// app.js
-
 const express = require('express');
 const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const csvParser = require('csv-parser');
+const session = require('express-session');
+const xml2js = require('xml2js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const parser = new xml2js.Parser();
+const builder = new xml2js.Builder();
 
 // Set up middleware
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(session({
+    secret: 'your_secret_key',
+    resave: false,
+    saveUninitialized: true
+}));
+app.use('/images', express.static(path.join(__dirname, 'data/users/images')));
 app.set('view engine', 'ejs');
 
+// Multer setup for image uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const username = req.session.username;
+        const userDir = path.join(__dirname, `data/users/${username}/images`);
+        cb(null, userDir);
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + path.extname(file.originalname));
+    }
+});
+const upload = multer({ storage: storage });
+
+// Function to create necessary directories and files for a user
+function initializeUserDirectory(username) {
+    const userDir = path.join(__dirname, `data/users/${username}`);
+    const imageDir = path.join(userDir, 'images');
+    if (!fs.existsSync(userDir)) {
+        fs.mkdirSync(userDir, { recursive: true });
+    }
+    if (!fs.existsSync(imageDir)) {
+        fs.mkdirSync(imageDir);
+    }
+    const files = {
+        'items.csv': 'item_name,item_price,item_type,item_image\n',
+        'orders.csv': 'Order ID,Items,GPAY Name,Status\n',
+        'export.csv': 'Order ID,Items,Price,Payment Mode,GPAY Name,Phone No\n',
+        'summary.json': JSON.stringify({ gpayAmount: 0, cashAmount: 0 }),
+        'userdata.csv': 'username,email,phone\n'
+    };
+    for (const [file, content] of Object.entries(files)) {
+        const filePath = path.join(userDir, `${username}_${file}`);
+        if (!fs.existsSync(filePath)) {
+            fs.writeFileSync(filePath, content);
+        }
+    }
+}
+
 // Function to calculate summary
-function calculateSummary() {
+function calculateSummary(username) {
     let gpayAmount = 0;
     let cashAmount = 0;
-    fs.createReadStream('data/export.csv')
+    const exportPath = path.join(__dirname, `data/users/${username}/${username}_export.csv`);
+    fs.createReadStream(exportPath)
         .pipe(csvParser())
         .on('data', (row) => {
             if (row['Payment Mode'] === 'gpay') {
@@ -25,7 +75,7 @@ function calculateSummary() {
             }
         })
         .on('end', () => {
-            fs.writeFileSync('summary.json', JSON.stringify({ gpayAmount, cashAmount }));
+            fs.writeFileSync(path.join(__dirname, `data/users/${username}/${username}_summary.json`), JSON.stringify({ gpayAmount, cashAmount }));
         });
 }
 
@@ -34,237 +84,255 @@ function generateOrderId() {
     return Math.floor(Math.random() * 1000000); // Simple random order ID generation
 }
 
+// Function to authenticate user by email and password
+function authenticateUser(email, password, callback) {
+    fs.readFile('data/users.xml', (err, data) => {
+        if (err) throw err;
+        parser.parseString(data, (err, result) => {
+            if (err) throw err;
+            const users = result.users.user;
+            const user = users.find(user => user.email[0] === email && user.password[0] === password);
+            callback(user);
+        });
+    });
+}
+
+// Function to register user
+function registerUser(username, email, password, callback) {
+    fs.readFile('data/users.xml', (err, data) => {
+        if (err) throw err;
+        parser.parseString(data, (err, result) => {
+            if (err) throw err;
+            const users = result.users.user;
+            const userExists = users.some(user => user.email[0] === email);
+            if (userExists) {
+                callback(false);
+            } else {
+                result.users.user.push({ username: [username], email: [email], password: [password] });
+                const xml = builder.buildObject(result);
+                fs.writeFile('data/users.xml', xml, (err) => {
+                    if (err) throw err;
+                    initializeUserDirectory(username);
+                    callback(true);
+                });
+            }
+        });
+    });
+}
+
+// Middleware to check if user is logged in
+function checkAuth(req, res, next) {
+    if (req.session.username) {
+        next();
+    } else {
+        res.redirect('/login');
+    }
+}
+
 // Routes
-app.get('/', (req, res) => {
-    calculateSummary();
-    // Read items.csv and render dashboard
+app.get('/login', (req, res) => {
+    res.render('login');
+});
+
+app.post('/login', (req, res) => {
+    const { email, password } = req.body;
+    authenticateUser(email, password, (user) => {
+        if (user) {
+            req.session.username = user.username[0];
+            initializeUserDirectory(user.username[0]);
+            res.redirect('/');
+        } else {
+            res.send('Invalid email or password');
+        }
+    });
+});
+
+app.get('/register', (req, res) => {
+    res.render('register');
+});
+
+app.post('/register', (req, res) => {
+    const { first_name, email, password } = req.body;
+    registerUser(first_name, email, password, (success) => {
+        if (success) {
+            res.redirect('/login');
+        } else {
+            res.send('Email already exists');
+        }
+    });
+});
+
+app.get('/', checkAuth, (req, res) => {
+    const username = req.session.username;
+    calculateSummary(username);
     const items = [];
-    fs.createReadStream('data/items.csv')
+    fs.createReadStream(path.join(__dirname, `data/users/${username}/${username}_items.csv`))
         .pipe(csvParser())
         .on('data', (row) => {
             items.push(row);
         })
         .on('end', () => {
-            res.render('dashboard', { items });
+            const userDataPath = path.join(__dirname, `data/users/${username}/${username}_userdata.csv`);
+            let userData = {};
+            if (fs.existsSync(userDataPath)) {
+                const data = fs.readFileSync(userDataPath, 'utf8');
+                const [username, email, phone] = data.split(',');
+                userData = { username, email, phone };
+            }
+            res.render('dashboard', { items, username, userData });
         });
 });
 
-// Route to handle item submission
-app.post('/submit', (req, res) => {
-    // Handle item submission
+app.post('/submit', checkAuth, (req, res) => {
+    const username = req.session.username;
     const { items, price, paymentMode, gpayName, gpayPhone } = req.body;
-
-    // Generate a unique order ID
     const orderId = generateOrderId();
-
-    // Prepare the transaction data for CSV
-    let transactionItems = items.join(' - '); // Join items with hyphen
+    let transactionItems = items.join(' - ');
     let transaction = `${orderId},${transactionItems},${price},${paymentMode},${gpayName || 'N/A'},${gpayPhone || 'N/A'}`;
 
-    // Check if export.csv exists
-    fs.access('data/export.csv', fs.constants.F_OK, (err) => {
+    fs.access(path.join(__dirname, `data/users/${username}/${username}_export.csv`), fs.constants.F_OK, (err) => {
         if (err) {
-            // If export.csv does not exist, write the transaction data directly
-            fs.writeFile('data/export.csv', transaction + '\n', (err) => {
+            fs.writeFile(path.join(__dirname, `data/users/${username}/${username}_export.csv`), transaction + '\n', (err) => {
                 if (err) {
                     console.error('Error writing to export.csv:', err);
                     res.status(500).send('Error submitting items');
                 } else {
-                    console.log(gpayName+' have ordered an item');//Items submitted successfully
-                    res.send(gpayName+' have ordered an item');//Items submitted successfully
-                    calculateSummary();
+                    res.send(`${gpayName} have ordered an item`);
+                    calculateSummary(username);
                 }
             });
         } else {
-            // If export.csv exists, append the transaction data to the file
-            fs.appendFile('data/export.csv', '\n' + transaction, (err) => {
+            fs.appendFile(path.join(__dirname, `data/users/${username}/${username}_export.csv`), '\n' + transaction, (err) => {
                 if (err) {
                     console.error('Error writing to export.csv:', err);
                     res.status(500).send('Error submitting items');
                 } else {
-                    console.log(gpayName+' have ordered an item');//Items submitted successfully
-                    res.send(gpayName+' have ordered an item');//Items submitted successfully
-                    calculateSummary();
+                    res.send(`${gpayName} have ordered an item`);
+                    calculateSummary(username);
                 }
             });
         }
     });
 
-    // Prepare the order data for CSV
     let orderData = `${orderId},${transactionItems},${gpayName || 'N/A'},Not Completed`;
-
-    // Append the order data to orders.csv
-    fs.appendFile('data/orders.csv', '\n' + orderData, (err) => {
+    fs.appendFile(path.join(__dirname, `data/users/${username}/${username}_orders.csv`), '\n' + orderData, (err) => {
         if (err) {
             console.error('Error writing to orders.csv:', err);
-        } else {
-            console.log('Order details updated in orders.csv');
         }
     });
 });
 
-// Route to display orders
-app.get('/orders', (req, res) => {
-    // Read orders from orders.csv and render orders page
+app.get('/orders', checkAuth, (req, res) => {
+    const username = req.session.username;
     const orders = [];
-    fs.createReadStream('data/orders.csv')
+    fs.createReadStream(path.join(__dirname, `data/users/${username}/${username}_orders.csv`))
         .pipe(csvParser())
         .on('data', (row) => {
             orders.push(row);
         })
         .on('end', () => {
-            // Filter out completed orders
             const filteredOrders = orders.filter(order => order['Status'] !== 'Completed');
-            res.render('orders', { orders: filteredOrders });
+            res.render('orders', { orders, username });
         });
 });
 
-// Route to handle item submission
-// Route to handle item submission
-app.post('/submit', (req, res) => {
-    // Handle item submission
-    const { items, price, paymentMode, gpayName, gpayPhone } = req.body;
+app.post('/add-item', checkAuth, upload.single('itemImage'), (req, res) => {
+    const username = req.session.username;
+    const { itemName, itemPrice, itemType } = req.body;
+    const itemImage = `/images/${req.file.filename}`;
+    const itemData = `${itemName},${itemPrice},${itemType},${itemImage}`;
 
-    // Generate a unique order ID
-    const orderId = generateOrderId();
-
-    // Prepare the transaction items
-    const transactionItems = items.join(' - ');
-
-    // Prepare the order data for CSV
-    const orderData = `${orderId},${transactionItems},${gpayName || 'N/A'},Not Completed`;
-
-    // Append the order data to orders.csv
-    fs.appendFile('data/orders.csv', '\n' + orderData, (err) => {
+    fs.appendFile(path.join(__dirname, `data/users/${username}/${username}_items.csv`), '\n' + itemData, (err) => {
         if (err) {
-            console.error('Error writing to orders.csv:', err);
-            res.status(500).send('Error submitting items');
+            console.error('Error writing to items.csv:', err);
+            res.status(500).send('Error adding item');
         } else {
-            console.log('Order details updated in orders.csv');
-
-            // Prepare the transaction data for CSV
-            const transaction = `${orderId},${transactionItems},${price},${paymentMode},${gpayName || 'N/A'},${gpayPhone || 'N/A'}`;
-
-            // Check if export.csv exists
-            fs.access('data/export.csv', fs.constants.F_OK, (err) => {
-                if (err) {
-                    // If export.csv does not exist, write the transaction data directly
-                    fs.writeFile('data/export.csv', transaction + '\n', (err) => {
-                        if (err) {
-                            console.error('Error writing to export.csv:', err);
-                        } else {
-                            console.log('Items submitted successfully');
-                            calculateSummary();
-                        }
-                    });
-                } else {
-                    // If export.csv exists, append the transaction data to the file
-                    fs.appendFile('export.csv', '\n' + transaction, (err) => {
-                        if (err) {
-                            console.error('Error writing to export.csv:', err);
-                        } else {
-                            console.log('Items submitted successfully');
-                            calculateSummary();
-                        }
-                    });
-                }
-            });
-
-            res.send('Items submitted successfully');
+            res.redirect('/');
         }
     });
 });
 
-// Route to fetch recent transactions
-app.get('/recent-transactions', (req, res) => {
-    // Read recent transactions from export.csv and send the last 10 transactions to client
+app.post('/update-account', checkAuth, (req, res) => {
+    const username = req.session.username;
+    const { email, phone } = req.body;
+    const userData = `${username},${email},${phone}`;
+
+    fs.writeFile(path.join(__dirname, `data/users/${username}/${username}_userdata.csv`), userData, (err) => {
+        if (err) {
+            console.error('Error writing to userdata.csv:', err);
+            res.status(500).send('Error updating account');
+        } else {
+            res.redirect('/');
+        }
+    });
+});
+
+app.get('/summary', checkAuth, (req, res) => {
+    const username = req.session.username;
+    const summaryData = JSON.parse(fs.readFileSync(path.join(__dirname, `data/users/${username}/${username}_summary.json`), 'utf-8'));
+    res.json(summaryData);
+});
+
+app.get('/recent-transactions', checkAuth, (req, res) => {
+    const username = req.session.username;
     const transactions = [];
-    fs.createReadStream('data/export.csv')
+    fs.createReadStream(path.join(__dirname, `data/users/${username}/${username}_export.csv`))
         .pipe(csvParser())
         .on('data', (row) => {
             transactions.push(row);
         })
         .on('end', () => {
-            const lastTenTransactions = transactions.slice(-10); // Limit to last 10 transactions
+            const lastTenTransactions = transactions.slice(-10);
             res.json(lastTenTransactions);
         });
 });
 
-
-// Route to mark an order as complete
-app.post('/complete-order', (req, res) => {
+app.post('/complete-order', checkAuth, (req, res) => {
+    const username = req.session.username;
     const orderId = req.body.orderId;
     const orders = [];
 
-    // Read orders from orders.csv and update the status of the specified order
-    fs.createReadStream('data/orders.csv')
+    fs.createReadStream(path.join(__dirname, `data/users/${username}/${username}_orders.csv`))
         .pipe(csvParser())
         .on('data', (row) => {
-            // Update the status of the order with the specified orderId
             if (row['Order ID'] === orderId) {
                 row['Status'] = 'Completed';
             }
             orders.push(row);
         })
         .on('end', () => {
-            // Rewrite orders.csv with updated orders
-            const writer = fs.createWriteStream('data/orders.csv');
-            writer.write('Order ID,Items,GPAY Name,Status\n'); // Write the header
+            const writer = fs.createWriteStream(path.join(__dirname, `data/users/${username}/${username}_orders.csv`));
+            writer.write('Order ID,Items,GPAY Name,Status\n');
             orders.forEach((order) => {
                 writer.write(`${order['Order ID']},${order['Items']},${order['GPAY Name']},${order['Status']}\n`);
             });
             writer.end();
-            console.log(`Order ${orderId} marked as completed`);
             res.json({ success: true });
         });
 });
 
-// Function to calculate summary
-function calculateSummary() {
-    let gpayAmount = 0;
-    let cashAmount = 0;
-    fs.createReadStream('data/export.csv')
-        .pipe(csvParser())
-        .on('data', (row) => {
-            const paymentMode = row['Payment Mode'];
-            const price = parseFloat(row['Price']);
-            if (paymentMode === 'gpay') {
-                gpayAmount += price;
-            } else if (paymentMode === 'cash') {
-                cashAmount += price;
-            }
-        })
-        .on('end', () => {
-            // Write summary to summary.json
-            fs.writeFile('summary.json', JSON.stringify({ gpayAmount, cashAmount }), (err) => {
-                if (err) {
-                    console.error('Error writing summary:', err);
-                } else {
-                    console.log('---------------------------');//Summary updated successfully
-                }
-            });
-        });
-}
-
-
-// Route to fetch summary
-// Route to fetch summary
-app.get('/summary', (req, res) => {
-    // Read summary from summary.json and send to client
-    const summaryData = JSON.parse(fs.readFileSync('summary.json', 'utf-8'));
-    res.json(summaryData);
+app.post('/delete-latest-transaction', checkAuth, (req, res) => {
+    const username = req.session.username;
+    const lines = fs.readFileSync(path.join(__dirname, `data/users/${username}/${username}_export.csv`), 'utf-8').trim().split('\n');
+    lines.pop();
+    fs.writeFileSync(path.join(__dirname, `data/users/${username}/${username}_export.csv`), lines.join('\n'));
+    res.send('Latest transaction deleted successfully');
 });
 
+app.get('/logout', (req, res) => {
+    req.session.destroy();
+    res.redirect('/login');
+});
 
-
-// Route to delete the latest transaction
-app.post('/delete-latest-transaction', (req, res) => {
-    // Read export.csv, remove the last transaction, and rewrite the file
-    const lines = fs.readFileSync('data/export.csv', 'utf-8').trim().split('\n');
-    lines.pop(); // Remove the last line (latest transaction)
-    fs.writeFileSync('data/export.csv', lines.join('\n'));
-    console.log('Latest transaction deleted');
-    res.send('Latest transaction deleted successfully');
+// Check if items.csv exists and add header if not
+fs.access('data/items.csv', fs.constants.F_OK, (err) => {
+    if (err) {
+        fs.writeFile('data/items.csv', 'Item Name,Item Price,Item Type,Item Image\n', (err) => {
+            if (err) {
+                console.error('Error writing header to items.csv:', err);
+            }
+        });
+    }
 });
 
 // Start the server
