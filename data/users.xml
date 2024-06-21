@@ -1,18 +1,23 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <users>
-    <user>
-        <username>john_doe</username>
-        <email>john.doe@example.com</email>
-        <password>password123</password>
-    </user>
-    <user>
-        <username>jane_smith</username>
-        <email>jane.smith@example.com</email>
-        <password>password456</password>
-    </user>
-    <user>
-        <username>alice_jones</username>
-        <email>alice.jones@example.com</email>
-        <password>password789</password>
-    </user>
+  <user>
+    <username>john_doe</username>
+    <email>john.doe@example.com</email>
+    <password>password123</password>
+  </user>
+  <user>
+    <username>jane_smith</username>
+    <email>jane.smith@example.com</email>
+    <password>password456</password>
+  </user>
+  <user>
+    <username>alice_jones</username>
+    <email>alice.jones@example.com</email>
+    <password>password789</password>
+  </user>
+  <user>
+    <username>Kiran</username>
+    <email>devkiraa@gmail.com</email>
+    <password>m1670529</password>
+  </user>
 </users>

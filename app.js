@@ -5,6 +5,7 @@ const multer = require('multer');
 const csvParser = require('csv-parser');
 const session = require('express-session');
 const xml2js = require('xml2js');
+const qrcode = require('qrcode');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,7 +51,7 @@ function initializeUserDirectory(username) {
         'orders.csv': 'Order ID,Items,GPAY Name,Status\n',
         'export.csv': 'Order ID,Items,Price,Payment Mode,GPAY Name,Phone No\n',
         'summary.json': JSON.stringify({ gpayAmount: 0, cashAmount: 0 }),
-        'userdata.csv': 'username,email,phone\n'
+        'userdata.csv': 'username,email,phone,company_name,upi_id\n'
     };
     for (const [file, content] of Object.entries(files)) {
         const filePath = path.join(userDir, `${username}_${file}`);
@@ -166,20 +167,30 @@ app.get('/', checkAuth, (req, res) => {
     const username = req.session.username;
     calculateSummary(username);
     const items = [];
+    const orders = [];
     fs.createReadStream(path.join(__dirname, `data/users/${username}/${username}_items.csv`))
         .pipe(csvParser())
         .on('data', (row) => {
             items.push(row);
         })
         .on('end', () => {
-            const userDataPath = path.join(__dirname, `data/users/${username}/${username}_userdata.csv`);
-            let userData = {};
-            if (fs.existsSync(userDataPath)) {
-                const data = fs.readFileSync(userDataPath, 'utf8');
-                const [username, email, phone] = data.split(',');
-                userData = { username, email, phone };
-            }
-            res.render('dashboard', { items, username, userData });
+            fs.createReadStream(path.join(__dirname, `data/users/${username}/${username}_orders.csv`))
+                .pipe(csvParser())
+                .on('data', (row) => {
+                    if (row['Status'] !== 'Completed') {
+                        orders.push(row);
+                    }
+                })
+                .on('end', () => {
+                    const userDataPath = path.join(__dirname, `data/users/${username}/${username}_userdata.csv`);
+                    let userData = {};
+                    if (fs.existsSync(userDataPath)) {
+                        const data = fs.readFileSync(userDataPath, 'utf8').split('\n')[1];
+                        const [username, email, phone, company_name, upi_id] = data.split(',');
+                        userData = { username, email, phone, company_name, upi_id };
+                    }
+                    res.render('dashboard', { items, orders, username, userData });
+                });
         });
 });
 
@@ -222,27 +233,13 @@ app.post('/submit', checkAuth, (req, res) => {
     });
 });
 
-app.get('/orders', checkAuth, (req, res) => {
-    const username = req.session.username;
-    const orders = [];
-    fs.createReadStream(path.join(__dirname, `data/users/${username}/${username}_orders.csv`))
-        .pipe(csvParser())
-        .on('data', (row) => {
-            orders.push(row);
-        })
-        .on('end', () => {
-            const filteredOrders = orders.filter(order => order['Status'] !== 'Completed');
-            res.render('orders', { orders, username });
-        });
-});
-
 app.post('/add-item', checkAuth, upload.single('itemImage'), (req, res) => {
     const username = req.session.username;
     const { itemName, itemPrice, itemType } = req.body;
-    const itemImage = `/images/${req.file.filename}`;
+    const itemImage = req.file ? `/images/${req.file.filename}` : '';
     const itemData = `${itemName},${itemPrice},${itemType},${itemImage}`;
 
-    fs.appendFile(path.join(__dirname, `data/users/${username}/${username}_items.csv`), '\n' + itemData, (err) => {
+    fs.appendFile(path.join(__dirname, `data/users/${username}/${username}_items.csv`), itemData, (err) => {
         if (err) {
             console.error('Error writing to items.csv:', err);
             res.status(500).send('Error adding item');
@@ -252,12 +249,63 @@ app.post('/add-item', checkAuth, upload.single('itemImage'), (req, res) => {
     });
 });
 
+app.post('/update-item', checkAuth, upload.single('itemImage'), (req, res) => {
+    const username = req.session.username;
+    const { oldItemName, itemName, itemPrice, itemType } = req.body;
+    const itemImage = req.file ? `/images/${req.file.filename}` : '';
+    const items = [];
+
+    fs.createReadStream(path.join(__dirname, `data/users/${username}/${username}_items.csv`))
+        .pipe(csvParser())
+        .on('data', (row) => {
+            if (row.item_name === oldItemName) {
+                row.item_name = itemName;
+                row.item_price = itemPrice;
+                row.item_type = itemType;
+                if (itemImage) row.item_image = itemImage;
+            }
+            items.push(row);
+        })
+        .on('end', () => {
+            const writer = fs.createWriteStream(path.join(__dirname, `data/users/${username}/${username}_items.csv`));
+            writer.write('item_name,item_price,item_type,item_image\n');
+            items.forEach((item) => {
+                writer.write(`${item.item_name},${item.item_price},${item.item_type},${item.item_image}\n`);
+            });
+            writer.end();
+            res.redirect('/');
+        });
+});
+
+app.post('/delete-item', checkAuth, (req, res) => {
+    const username = req.session.username;
+    const { itemName } = req.body;
+    const items = [];
+
+    fs.createReadStream(path.join(__dirname, `data/users/${username}/${username}_items.csv`))
+        .pipe(csvParser())
+        .on('data', (row) => {
+            if (row.item_name !== itemName) {
+                items.push(row);
+            }
+        })
+        .on('end', () => {
+            const writer = fs.createWriteStream(path.join(__dirname, `data/users/${username}/${username}_items.csv`));
+            writer.write('item_name,item_price,item_type,item_image\n');
+            items.forEach((item) => {
+                writer.write(`${item.item_name},${item.item_price},${item.item_type},${item.item_image}\n`);
+            });
+            writer.end();
+            res.redirect('/');
+        });
+});
+
 app.post('/update-account', checkAuth, (req, res) => {
     const username = req.session.username;
-    const { email, phone } = req.body;
-    const userData = `${username},${email},${phone}`;
+    const { email, phone, company_name, upi_id } = req.body;
+    const userData = `${username},${email},${phone},${company_name},${upi_id}`;
 
-    fs.writeFile(path.join(__dirname, `data/users/${username}/${username}_userdata.csv`), userData, (err) => {
+    fs.writeFile(path.join(__dirname, `data/users/${username}/${username}_userdata.csv`), 'username,email,phone,company_name,upi_id\n' + userData, (err) => {
         if (err) {
             console.error('Error writing to userdata.csv:', err);
             res.status(500).send('Error updating account');
@@ -319,20 +367,25 @@ app.post('/delete-latest-transaction', checkAuth, (req, res) => {
     res.send('Latest transaction deleted successfully');
 });
 
+app.post('/process-payment', checkAuth, async (req, res) => {
+    const username = req.session.username;
+    const { paymentMode, amount } = req.body;
+    const userDataPath = path.join(__dirname, `data/users/${username}/${username}_userdata.csv`);
+    const userData = fs.readFileSync(userDataPath, 'utf8').split('\n')[1].split(',');
+    const [ , , , company_name, upi_id] = userData;
+
+    if (paymentMode === 'UPI') {
+        const upiUrl = `upi://pay?pa=${upi_id}&pn=${company_name}&am=${amount}&cu=INR`;
+        const qrCode = await qrcode.toDataURL(upiUrl);
+        res.json({ qrCode });
+    } else {
+        res.json({ success: true });
+    }
+});
+
 app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
-});
-
-// Check if items.csv exists and add header if not
-fs.access('data/items.csv', fs.constants.F_OK, (err) => {
-    if (err) {
-        fs.writeFile('data/items.csv', 'Item Name,Item Price,Item Type,Item Image\n', (err) => {
-            if (err) {
-                console.error('Error writing header to items.csv:', err);
-            }
-        });
-    }
 });
 
 // Start the server
