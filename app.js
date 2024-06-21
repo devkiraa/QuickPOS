@@ -15,7 +15,7 @@ app.set('view engine', 'ejs');
 function calculateSummary() {
     let gpayAmount = 0;
     let cashAmount = 0;
-    fs.createReadStream('export.csv')
+    fs.createReadStream('data/export.csv')
         .pipe(csvParser())
         .on('data', (row) => {
             if (row['Payment Mode'] === 'gpay') {
@@ -39,7 +39,7 @@ app.get('/', (req, res) => {
     calculateSummary();
     // Read items.csv and render dashboard
     const items = [];
-    fs.createReadStream('items.csv')
+    fs.createReadStream('data/items.csv')
         .pipe(csvParser())
         .on('data', (row) => {
             items.push(row);
@@ -62,10 +62,10 @@ app.post('/submit', (req, res) => {
     let transaction = `${orderId},${transactionItems},${price},${paymentMode},${gpayName || 'N/A'},${gpayPhone || 'N/A'}`;
 
     // Check if export.csv exists
-    fs.access('export.csv', fs.constants.F_OK, (err) => {
+    fs.access('data/export.csv', fs.constants.F_OK, (err) => {
         if (err) {
             // If export.csv does not exist, write the transaction data directly
-            fs.writeFile('export.csv', transaction + '\n', (err) => {
+            fs.writeFile('data/export.csv', transaction + '\n', (err) => {
                 if (err) {
                     console.error('Error writing to export.csv:', err);
                     res.status(500).send('Error submitting items');
@@ -77,7 +77,7 @@ app.post('/submit', (req, res) => {
             });
         } else {
             // If export.csv exists, append the transaction data to the file
-            fs.appendFile('export.csv', '\n' + transaction, (err) => {
+            fs.appendFile('data/export.csv', '\n' + transaction, (err) => {
                 if (err) {
                     console.error('Error writing to export.csv:', err);
                     res.status(500).send('Error submitting items');
@@ -94,7 +94,7 @@ app.post('/submit', (req, res) => {
     let orderData = `${orderId},${transactionItems},${gpayName || 'N/A'},Not Completed`;
 
     // Append the order data to orders.csv
-    fs.appendFile('orders.csv', '\n' + orderData, (err) => {
+    fs.appendFile('data/orders.csv', '\n' + orderData, (err) => {
         if (err) {
             console.error('Error writing to orders.csv:', err);
         } else {
@@ -107,7 +107,7 @@ app.post('/submit', (req, res) => {
 app.get('/orders', (req, res) => {
     // Read orders from orders.csv and render orders page
     const orders = [];
-    fs.createReadStream('orders.csv')
+    fs.createReadStream('data/orders.csv')
         .pipe(csvParser())
         .on('data', (row) => {
             orders.push(row);
@@ -135,7 +135,7 @@ app.post('/submit', (req, res) => {
     const orderData = `${orderId},${transactionItems},${gpayName || 'N/A'},Not Completed`;
 
     // Append the order data to orders.csv
-    fs.appendFile('orders.csv', '\n' + orderData, (err) => {
+    fs.appendFile('data/orders.csv', '\n' + orderData, (err) => {
         if (err) {
             console.error('Error writing to orders.csv:', err);
             res.status(500).send('Error submitting items');
@@ -146,10 +146,10 @@ app.post('/submit', (req, res) => {
             const transaction = `${orderId},${transactionItems},${price},${paymentMode},${gpayName || 'N/A'},${gpayPhone || 'N/A'}`;
 
             // Check if export.csv exists
-            fs.access('export.csv', fs.constants.F_OK, (err) => {
+            fs.access('data/export.csv', fs.constants.F_OK, (err) => {
                 if (err) {
                     // If export.csv does not exist, write the transaction data directly
-                    fs.writeFile('export.csv', transaction + '\n', (err) => {
+                    fs.writeFile('data/export.csv', transaction + '\n', (err) => {
                         if (err) {
                             console.error('Error writing to export.csv:', err);
                         } else {
@@ -179,7 +179,7 @@ app.post('/submit', (req, res) => {
 app.get('/recent-transactions', (req, res) => {
     // Read recent transactions from export.csv and send the last 10 transactions to client
     const transactions = [];
-    fs.createReadStream('export.csv')
+    fs.createReadStream('data/export.csv')
         .pipe(csvParser())
         .on('data', (row) => {
             transactions.push(row);
@@ -197,7 +197,7 @@ app.post('/complete-order', (req, res) => {
     const orders = [];
 
     // Read orders from orders.csv and update the status of the specified order
-    fs.createReadStream('orders.csv')
+    fs.createReadStream('data/orders.csv')
         .pipe(csvParser())
         .on('data', (row) => {
             // Update the status of the order with the specified orderId
@@ -208,7 +208,7 @@ app.post('/complete-order', (req, res) => {
         })
         .on('end', () => {
             // Rewrite orders.csv with updated orders
-            const writer = fs.createWriteStream('orders.csv');
+            const writer = fs.createWriteStream('data/orders.csv');
             writer.write('Order ID,Items,GPAY Name,Status\n'); // Write the header
             orders.forEach((order) => {
                 writer.write(`${order['Order ID']},${order['Items']},${order['GPAY Name']},${order['Status']}\n`);
@@ -223,7 +223,7 @@ app.post('/complete-order', (req, res) => {
 function calculateSummary() {
     let gpayAmount = 0;
     let cashAmount = 0;
-    fs.createReadStream('export.csv')
+    fs.createReadStream('data/export.csv')
         .pipe(csvParser())
         .on('data', (row) => {
             const paymentMode = row['Payment Mode'];
@@ -260,9 +260,9 @@ app.get('/summary', (req, res) => {
 // Route to delete the latest transaction
 app.post('/delete-latest-transaction', (req, res) => {
     // Read export.csv, remove the last transaction, and rewrite the file
-    const lines = fs.readFileSync('export.csv', 'utf-8').trim().split('\n');
+    const lines = fs.readFileSync('data/export.csv', 'utf-8').trim().split('\n');
     lines.pop(); // Remove the last line (latest transaction)
-    fs.writeFileSync('export.csv', lines.join('\n'));
+    fs.writeFileSync('data/export.csv', lines.join('\n'));
     console.log('Latest transaction deleted');
     res.send('Latest transaction deleted successfully');
 });
