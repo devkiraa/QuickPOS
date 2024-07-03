@@ -13,6 +13,17 @@
         .primary-color-text {
             color: #FC8019;
         }
+        .notification {
+            display: none;
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #FC8019;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -42,7 +53,6 @@
                     <h2 class="text-3xl font-bold primary-color-text">Dashboard</h2>
                     <div class="flex items-center space-x-2">
                         <input type="text" placeholder="Search product..." id="search-input" class="p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-color">
-                        <button class="p-2 primary-color text-white rounded-lg"><i class="fas fa-search"></i></button>
                     </div>
                 </div>
                 <div class="mb-5">
@@ -167,7 +177,7 @@
         </div>
 
         <!-- Current Order -->
-        <div class="w-full md:w-1/5 bg-white p-5 h-screen">
+        <div class="w-full md:w-1/5 bg-white p-5 h-screen" id="current-order-section">
             <h3 class="text-xl font-semibold mb-4">Current Order</h3>
             <div id="current-order" class="space-y-4">
                 <!-- Current order items will be dynamically added here -->
@@ -211,6 +221,9 @@
         </div>
     </div>
 
+    <!-- Payment Notification -->
+    <div id="payment-notification" class="notification"></div>
+
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script>
         $(document).ready(function() {
@@ -223,6 +236,8 @@
                 $('#items-section').hide();
                 $('#settings-section').hide();
                 $('#summary-section').hide();
+                $('#current-order-section').show();
+                highlightActiveLink('#dashboard-link');
             });
 
             $('#orders-link').click(function() {
@@ -231,6 +246,8 @@
                 $('#items-section').hide();
                 $('#settings-section').hide();
                 $('#summary-section').hide();
+                $('#current-order-section').hide();
+                highlightActiveLink('#orders-link');
             });
 
             $('#items-link').click(function() {
@@ -239,6 +256,8 @@
                 $('#items-section').show();
                 $('#settings-section').hide();
                 $('#summary-section').hide();
+                $('#current-order-section').hide();
+                highlightActiveLink('#items-link');
             });
 
             $('#settings-link').click(function() {
@@ -247,6 +266,8 @@
                 $('#items-section').hide();
                 $('#settings-section').show();
                 $('#summary-section').hide();
+                $('#current-order-section').hide();
+                highlightActiveLink('#settings-link');
             });
 
             $('#summary-link').click(function() {
@@ -255,7 +276,14 @@
                 $('#items-section').hide();
                 $('#settings-section').hide();
                 $('#summary-section').show();
+                $('#current-order-section').hide();
+                highlightActiveLink('#summary-link');
             });
+
+            function highlightActiveLink(link) {
+                $('ul li a').removeClass('bg-gray-300 text-gray-700').addClass('text-gray-700');
+                $(link).removeClass('text-gray-700').addClass('bg-gray-300 text-white');
+            }
 
             // Filter items based on category
             $('.filter-button').click(function() {
@@ -360,13 +388,21 @@
                         alert('Scan this QR code to complete the payment.');
                         // Implement a modal or element to show the QR code
                     } else {
-                        alert('Payment completed successfully.');
+                        showNotification('Payment completed successfully.');
                         // Reset the order
                         $('#current-order').empty();
                         $('#subtotal').text('₹0.00');
                         $('#total').text('₹0.00');
                         totalPrice = 0;
                         $('#payment-modal').addClass('hidden');
+                        // Add order to orders section
+                        const newOrder = {
+                            'Order ID': Math.floor(Math.random() * 1000000),
+                            'Items': transactionItems,
+                            'GPAY Name': gpayName,
+                            'Status': 'Not Completed'
+                        };
+                        orders.push(newOrder);
                     }
                 });
             });
@@ -444,6 +480,16 @@
                     }
                 });
             });
+
+            // Show notification
+            function showNotification(message) {
+                const notification = $('#payment-notification');
+                notification.text(message);
+                notification.fadeIn();
+                setTimeout(() => {
+                    notification.fadeOut();
+                }, 3000);
+            }
         });
     </script>
 </body>

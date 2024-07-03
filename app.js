@@ -239,7 +239,7 @@ app.post('/add-item', checkAuth, upload.single('itemImage'), (req, res) => {
     const itemImage = req.file ? `/images/${req.file.filename}` : '';
     const itemData = `${itemName},${itemPrice},${itemType},${itemImage}`;
 
-    fs.appendFile(path.join(__dirname, `data/users/${username}/${username}_items.csv`), itemData, (err) => {
+    fs.appendFile(path.join(__dirname, `data/users/${username}/${username}_items.csv`), itemData + '\n', (err) => {
         if (err) {
             console.error('Error writing to items.csv:', err);
             res.status(500).send('Error adding item');
