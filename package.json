@@ -1,22 +1,35 @@
 {
-  "name": "inventory_updater",
+  "name": "quickpos",
   "version": "1.0.0",
-  "main": "app.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devkiraa/QuickPOS.git"
+  },
+  "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "csv-parser": "^3.0.0",
-    "ejs": "^3.1.10",
-    "express": "^4.19.2",
-    "express-session": "^1.18.0",
-    "helmet": "^7.1.0",
-    "multer": "^1.4.5-lts.1",
-    "qrcode": "^1.5.3",
-    "xml2js": "^0.6.2"
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/devkiraa/QuickPOS/issues"
   },
-  "description": ""
+  "homepage": "https://github.com/devkiraa/QuickPOS#readme",
+  "description": "",
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "mongoose": "^8.13.0",
+    "pdfkit": "^0.16.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
 }

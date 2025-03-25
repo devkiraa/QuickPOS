@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings - Canteen POS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-green-100 font-sans">
+  <div class="flex min-h-screen">
+    <!-- Left Sidebar -->
+    <aside class="w-64 bg-white shadow-md flex flex-col">
+      <div class="p-6">
+        <h2 class="text-2xl font-bold text-green-600">Canteen Logo</h2>
+      </div>
+      <nav class="flex-1">
+        <ul>
+            <li><a href="/dashboard" class="block py-3 px-6 hover:bg-green-50">Home</a></li>
+            <li><a href="/orders/list" class="block py-3 px-6 hover:bg-green-50">Order List</a></li>
+            <li><a href="/dashboard/settings" class="block py-3 px-6 hover:bg-green-50">Settings</a></li>
+          </ul>
+      </nav>
+      <div class="p-6 border-t">
+        <div class="flex items-center">
+          <img src="https://via.placeholder.com/40" alt="User Avatar" class="rounded-full">
+          <span class="ml-3 text-green-600 font-semibold"><%= user.username %></span>
+          <a href="/dashboard/logout" class="ml-auto text-red-500 hover:underline">Logout</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area: Settings -->
+    <div class="flex-1 flex flex-col">
+      <!-- Top Bar -->
+      <header class="bg-white shadow p-4 flex items-center justify-between">
+        <div class="flex-1">
+          <input type="text" placeholder="Search settings..." class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-400">
+        </div>
+        <div class="ml-4">
+          <img src="https://via.placeholder.com/40" alt="User Avatar" class="rounded-full">
+        </div>
+      </header>
+
+      <div class="p-6 overflow-y-auto">
+        <h2 class="text-2xl font-bold text-green-700 mb-6">Settings</h2>
+        <div class="grid grid-cols-2 gap-8">
+          <!-- Panel for Adding Food Items -->
+          <section class="bg-white rounded shadow p-6">
+            <h3 class="text-xl font-semibold text-green-600 mb-4">Add Food Item</h3>
+            <form action="/dashboard/add-fooditem" method="POST" class="space-y-4">
+              <input type="text" name="name" placeholder="Name" required class="w-full border rounded px-2 py-1">
+              <input type="text" name="section" placeholder="Section" required class="w-full border rounded px-2 py-1">
+              <input type="text" name="subsection" placeholder="Subsection (optional)" class="w-full border rounded px-2 py-1">
+              <input type="number" step="0.01" name="price" placeholder="Price" required class="w-full border rounded px-2 py-1">
+              <input type="text" name="imageUrl" placeholder="Image URL" class="w-full border rounded px-2 py-1">
+              <button type="submit" class="w-full bg-green-500 text-white rounded py-2 hover:bg-green-600 transition">Add Food Item</button>
+            </form>
+          </section>
+          <!-- Panel for Managing UPI IDs -->
+          <section class="bg-white rounded shadow p-6">
+            <h3 class="text-xl font-semibold text-green-600 mb-4">Manage UPI IDs</h3>
+            <ul class="mb-4">
+              <% upiIds.forEach(upi => { %>
+                <li class="flex justify-between items-center border-b py-2">
+                  <span>
+                    <%= upi.upiId %> 
+                    <% if(upi.active) { %>
+                      <span class="text-green-600 font-bold">(Active)</span>
+                    <% } %>
+                  </span>
+                  <% if(!upi.active) { %>
+                    <form action="/dashboard/set-active-upi" method="POST">
+                      <input type="hidden" name="upiRecordId" value="<%= upi._id %>">
+                      <button type="submit" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">Make Active</button>
+                    </form>
+                  <% } %>
+                </li>
+              <% }) %>
+            </ul>
+            <form action="/dashboard/add-upi" method="POST" class="space-y-4">
+              <input type="text" name="upiId" placeholder="Enter UPI ID" required class="w-full border rounded px-2 py-1">
+              <button type="submit" class="w-full bg-green-500 text-white rounded py-2 hover:bg-green-600 transition">Add UPI ID (Active)</button>
+            </form>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

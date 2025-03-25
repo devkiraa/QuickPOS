@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Order List - Canteen POS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Include QRCode.js for UPI QR generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-green-100 font-sans">
+  <div class="flex min-h-screen">
+    <!-- Left Sidebar (reuse from dashboard) -->
+    <aside class="w-64 bg-white shadow-md flex flex-col">
+      <div class="p-6">
+        <h2 class="text-2xl font-bold text-green-600">Canteen Logo</h2>
+      </div>
+      <nav class="flex-1">
+        <ul>
+            <li><a href="/dashboard" class="block py-3 px-6 hover:bg-green-50">Home</a></li>
+            <li><a href="/orders/list" class="block py-3 px-6 hover:bg-green-50">Order List</a></li>
+            <li><a href="/dashboard/settings" class="block py-3 px-6 hover:bg-green-50">Settings</a></li>
+        </ul>
+      </nav>
+      <div class="p-6 border-t">
+        <div class="flex items-center">
+          <span class="ml-3 text-green-600 font-semibold"><%= user.username %></span>
+          <a href="/dashboard/logout" class="ml-auto text-red-500 hover:underline">Logout</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col">
+      <!-- Top Bar -->
+      <header class="bg-white shadow p-4">
+        <h1 class="text-3xl text-green-700 font-bold">Order List</h1>
+      </header>
+
+      <div class="p-6 overflow-y-auto">
+        <!-- Order List Table -->
+        <table class="min-w-full bg-white">
+          <thead>
+            <tr class="bg-green-500 text-white">
+              <th class="py-2 px-4">Order ID</th>
+              <th class="py-2 px-4">Customer</th>
+              <th class="py-2 px-4">Payment</th>
+              <th class="py-2 px-4">Status</th>
+              <th class="py-2 px-4">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% orders.forEach(order => { %>
+              <tr class="border-b">
+                <td class="py-2 px-4"><%= order.orderId %></td>
+                <td class="py-2 px-4"><%= order.customerName %></td>
+                <td class="py-2 px-4">
+                  <%= order.paymentMode %>
+                  <% if(order.paymentMode === 'UPI') { %>
+                    (<%= order.upiId %>)
+                  <% } %>
+                </td>
+                <td class="py-2 px-4"><%= order.status %></td>
+                <td class="py-2 px-4">
+                  <button onclick="modifyOrder('<%= order.orderId %>')" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">Modify</button>
+                  <button onclick="deleteOrder('<%= order.orderId %>')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 ml-2">Delete</button>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Order Modification -->
+  <div id="modalOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+    <div id="modalContent" class="bg-white rounded p-6 w-96 relative">
+      <h3 class="text-lg font-bold mb-2">Modify Order: <span id="modalOrderId"></span></h3>
+      <p class="mb-2 text-sm text-gray-700">Original Total: ₹<span id="originalTotal">0.00</span></p>
+      <p class="mb-2 text-sm text-gray-700">Current Order Items:</p>
+      <div id="modalOrderItems" class="mb-4 border p-2 rounded">
+        <!-- Dynamically populated list of items with plus/minus buttons -->
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Add New Item</label>
+        <select id="newItemSelect" class="w-full border rounded px-2 py-1">
+          <option value="">Select Item</option>
+          <% allFoodItems.forEach(item => { %>
+            <option value='<%= JSON.stringify({ id: item._id, name: item.name, price: item.price }) %>'>
+              <%= item.name %> (₹<%= item.price %>)
+            </option>
+          <% }) %>
+        </select>
+        <input type="number" id="newItemQty" class="w-full border rounded px-2 py-1 mt-2" placeholder="Quantity" value="1" min="1">
+        <button onclick="addNewItem()" class="mt-2 w-full bg-blue-500 text-white py-1 rounded hover:bg-blue-600">Add Item</button>
+      </div>
+      <p class="mb-2 text-sm text-gray-700">New Total: ₹<span id="newTotal">0.00</span></p>
+      <p class="mb-2 text-sm text-gray-700">Extra Amount Due: ₹<span id="extraDue">0.00</span></p>
+      <!-- Payment method selection in modal -->
+      <div class="mb-4">
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Payment Method for Extra</label>
+        <div class="flex space-x-4">
+          <label class="inline-flex items-center">
+            <input type="radio" name="modalPaymentMode" value="Cash" class="form-radio" checked>
+            <span class="ml-2">Cash</span>
+          </label>
+          <label class="inline-flex items-center">
+            <input type="radio" name="modalPaymentMode" value="UPI" class="form-radio">
+            <span class="ml-2">UPI</span>
+          </label>
+        </div>
+      </div>
+      <!-- UPI info section -->
+      <div id="modalUPIInfo" class="mb-4 hidden">
+        <p class="text-sm text-gray-700">Active UPI ID: <strong><%= activeUpi ? activeUpi.upiId : "Not Set" %></strong></p>
+      </div>
+      <!-- UPI QR Code section -->
+      <div id="modalUPISection" class="mb-4 hidden">
+        <div id="modalQRCode" class="mb-2"></div>
+      </div>
+      <button onclick="completeModification()" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Complete Modification</button>
+    </div>
+  </div>
+
+  <!-- Inline Script for Order List & Modification -->
+  <script>
+    let currentOrderId = "";
+    let baseTotal = 0; // The original order total (order.orderData.originalTotal)
+    let orderItems = {}; // Holds modifications (additional items) { itemId: { name, price, quantity } }
+  
+    // Function to fetch order details and open modal for modification
+    function modifyOrder(orderId) {
+      currentOrderId = orderId;
+      fetch(`/orders/details/${encodeURIComponent(orderId)}`)
+        .then(response => response.json())
+        .then(result => {
+          if(result.success) {
+            document.getElementById('modalOrderId').innerText = orderId;
+            // Set baseTotal from order.orderData.originalTotal if available; otherwise, use current total.
+            baseTotal = (result.order.orderData && result.order.orderData.originalTotal) || result.order.totalAmount || 0;
+            document.getElementById('originalTotal').innerText = baseTotal.toFixed(2);
+            // Initialize orderItems with existing additionalItems if present, otherwise empty.
+            orderItems = (result.order.orderData && result.order.orderData.additionalItems) || {};
+            updateModalTotals();
+            document.getElementById('modalOverlay').classList.remove('hidden');
+          } else {
+            alert("Error fetching order details: " + result.message);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert("Error fetching order details.");
+        });
+    }
+  
+    // Close modal if click outside content
+    document.getElementById('modalOverlay').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.add('hidden');
+      document.getElementById('modalOrderItems').innerHTML = "";
+      document.getElementById('newItemSelect').selectedIndex = 0;
+      document.getElementById('newItemQty').value = "1";
+      document.getElementById('modalQRCode').innerHTML = "";
+    }
+  
+    // Update modal totals and display current order items
+    function updateModalTotals() {
+      let addedTotal = 0;
+      const modalOrderItemsDiv = document.getElementById('modalOrderItems');
+      modalOrderItemsDiv.innerHTML = "";
+      for (const id in orderItems) {
+        const item = orderItems[id];
+        addedTotal += item.price * item.quantity;
+        const div = document.createElement('div');
+        div.className = "flex justify-between items-center py-1 border-b";
+        div.innerHTML = `
+          <span class="text-sm">${item.name} (x${item.quantity})</span>
+          <div class="flex space-x-2">
+            <button onclick="updateModalQuantity('${id}', -1)" class="px-2 py-1 bg-gray-200 rounded text-xs">-</button>
+            <button onclick="updateModalQuantity('${id}', 1)" class="px-2 py-1 bg-gray-200 rounded text-xs">+</button>
+          </div>
+          <span class="text-sm">₹${(item.price * item.quantity).toFixed(2)}</span>
+        `;
+        modalOrderItemsDiv.appendChild(div);
+      }
+      // New total is baseTotal plus modifications
+      let newTotal = baseTotal + addedTotal;
+      document.getElementById('newTotal').innerText = newTotal.toFixed(2);
+      let extraDue = newTotal - baseTotal;
+      document.getElementById('extraDue').innerText = extraDue.toFixed(2);
+    }
+  
+    function updateModalQuantity(id, delta) {
+      if (orderItems[id]) {
+        orderItems[id].quantity += delta;
+        if (orderItems[id].quantity <= 0) delete orderItems[id];
+      }
+      updateModalTotals();
+    }
+  
+    // Function to add new item from dropdown in modal
+    function addNewItem() {
+      const select = document.getElementById('newItemSelect');
+      const qty = parseInt(document.getElementById('newItemQty').value);
+      if (!select.value) {
+        alert("Please select an item.");
+        return;
+      }
+      if (isNaN(qty) || qty <= 0) {
+        alert("Please enter a valid quantity.");
+        return;
+      }
+      const itemData = JSON.parse(select.value);
+      const id = itemData.id;
+      if (orderItems[id]) {
+        orderItems[id].quantity += qty;
+      } else {
+        orderItems[id] = { name: itemData.name, price: itemData.price, quantity: qty };
+      }
+      updateModalTotals();
+      select.selectedIndex = 0;
+      document.getElementById('newItemQty').value = "1";
+    }
+  
+    // Payment method selection in modal
+    document.querySelectorAll('input[name="modalPaymentMode"]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        if (this.value === 'UPI') {
+          document.getElementById('modalUPIInfo').classList.remove('hidden');
+          document.getElementById('modalUPISection').classList.remove('hidden');
+          setTimeout(() => {
+            let extraDue = parseFloat(document.getElementById('extraDue').innerText);
+            generateModalQRCode(extraDue, "<%= activeUpi ? activeUpi.upiId : '' %>");
+          }, 500);
+        } else {
+          document.getElementById('modalUPIInfo').classList.add('hidden');
+          document.getElementById('modalUPISection').classList.add('hidden');
+        }
+      });
+    });
+  
+    // Function to generate QR code in modal
+    function generateModalQRCode(amount, upiId) {
+      const upiUrl = `upi://pay?pa=${upiId}&pn=Canteen&am=${amount.toFixed(2)}&cu=INR`;
+      document.getElementById('modalQRCode').innerHTML = "";
+      new QRCode(document.getElementById('modalQRCode'), {
+        text: upiUrl,
+        width: 128,
+        height: 128,
+      });
+    }
+  
+    // Function to complete order modification
+    function completeModification() {
+      let extraDue = Math.max(parseFloat(document.getElementById('newTotal').innerText) - baseTotal, 0);
+      const paymentMode = document.querySelector('input[name="modalPaymentMode"]:checked').value;
+      let upiId = "";
+      if (paymentMode === "UPI") {
+        upiId = "<%= activeUpi ? activeUpi.upiId : '' %>";
+        if (!upiId) {
+          alert("No active UPI ID set.");
+          return;
+        }
+      }
+      fetch(`/orders/modify/${encodeURIComponent(currentOrderId)}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          extraAmount: extraDue,
+          additionalItems: JSON.stringify(orderItems),
+          paymentMode: paymentMode,
+          upiId: upiId
+        })
+      })
+      .then(response => response.json())
+      .then(result => {
+        if(result.success) {
+          showNotification("Order Modified: " + currentOrderId);
+          closeModal();
+          window.location.reload();
+        } else {
+          alert("Error modifying order: " + result.message);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Error modifying order.");
+      });
+    }
+  
+    // Function to delete an order
+    function deleteOrder(orderId) {
+      if (confirm("Are you sure you want to delete order " + orderId + "?")) {
+        fetch(`/orders/delete/${encodeURIComponent(orderId)}`, { method: "DELETE" })
+        .then(response => response.json())
+        .then(result => {
+          if(result.success) {
+            showNotification("Order Deleted: " + orderId);
+            window.location.reload();
+          } else {
+            alert("Error deleting order: " + result.message);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert("Error deleting order.");
+        });
+      }
+    }
+  
+    // Function to show a notification at the top of the page
+    function showNotification(message) {
+      const notificationDiv = document.getElementById('notification');
+      notificationDiv.innerText = message;
+      notificationDiv.classList.remove('hidden');
+      setTimeout(() => {
+        notificationDiv.classList.add('hidden');
+      }, 3000);
+    }
+  </script>  
+</body>
+</html>

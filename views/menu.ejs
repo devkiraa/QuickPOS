@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Menu - Canteen Order</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <div class="max-w-xl mx-auto my-6 p-4 bg-white rounded-lg shadow">
+    <h2 class="text-2xl font-bold text-center mb-4">Select Your Items</h2>
+    <form action="/orders/place/<%= orderId %>" method="POST">
+      <div class="grid grid-cols-1 gap-4">
+        <% foodItems.forEach(item => { %>
+          <div class="border rounded p-4 flex flex-col">
+            <img src="<%= item.imageUrl %>" alt="<%= item.name %>" class="w-full h-32 object-cover rounded mb-2">
+            <div class="flex-grow">
+              <h3 class="font-semibold text-lg"><%= item.name %></h3>
+              <p class="text-gray-600">$<%= item.price %></p>
+            </div>
+            <div class="mt-2">
+              <label for="qty_<%= item._id %>" class="block text-gray-700 text-sm">Quantity:</label>
+              <input type="number" id="qty_<%= item._id %>" name="items[][quantity]" min="0" value="0" 
+                class="w-full border rounded px-2 py-1 focus:outline-none focus:ring focus:border-blue-300">
+              <input type="hidden" name="items[][foodItemId]" value="<%= item._id %>">
+            </div>
+          </div>
+        <% }) %>
+      </div>
+      <div class="flex justify-between mt-6">
+        <button type="button" onclick="history.back()" 
+          class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition">
+          Back
+        </button>
+        <button type="submit" 
+          class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition">
+          Place Order
+        </button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

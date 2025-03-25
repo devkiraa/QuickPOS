@@ -1,0 +1,22 @@
+canteen-management/
+├── models/
+│   ├── FoodItem.js
+│   ├── Upi.js
+│   ├── Order.js
+│   ├── Payment.js
+│   ├── Worker.js
+│   └── User.js       // new
+├── routes/
+│   ├── orderRoutes.js
+│   ├── paymentRoutes.js
+│   ├── workerRoutes.js
+│   └── dashboardRoutes.js  // updated
+├── views/
+│   ├── orderForm.ejs
+│   ├── menu.ejs
+│   ├── dashboard.ejs
+│   ├── settings.ejs
+│   ├── login.ejs
+│   └── success.ejs
+├── server.js
+└── package.json
