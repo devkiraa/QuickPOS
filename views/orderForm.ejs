@@ -5,28 +5,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Start Order - Canteen</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    // Tailwind config can be added here if needed
-  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #ffffff; /* White background */
+    }
+  </style>
 </head>
-<body class="bg-gray-50">
-  <div class="max-w-md mx-auto my-10 p-6 bg-white rounded-lg shadow">
-    <h2 class="text-2xl font-bold text-center mb-6">Start Your Order</h2>
-    <form action="/orders/new" method="POST" class="space-y-4">
-      <div>
-        <label for="customerName" class="block text-gray-700 font-medium">Name:</label>
-        <input type="text" id="customerName" name="customerName" required 
-          class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300">
-      </div>
-      <div>
-        <label for="mobile" class="block text-gray-700 font-medium">Mobile Number:</label>
-        <input type="text" id="mobile" name="mobile" required 
-          class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300">
-      </div>
-      <button type="submit" class="w-full bg-blue-500 text-white rounded py-2 hover:bg-blue-600 transition">
-        Next
-      </button>
-    </form>
-  </div>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+  <!-- Optional Close/Back Button (top-left) -->
+  <!-- Uncomment if you want a close icon, similar to the success page design
+  <button
+    class="absolute top-4 left-4 text-gray-400 hover:text-gray-600 focus:outline-none"
+    aria-label="Close"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
+         viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  </button>
+  -->
+
+  <!-- Heading Section -->
+  <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-1">
+    Start Your Order
+  </h2>
+  <p class="text-sm text-gray-500 mb-6">
+    Enter your details to continue
+  </p>
+
+  <!-- Form Container (no outer box) -->
+  <form
+    action="/orders/new"
+    method="POST"
+    class="w-full max-w-sm space-y-4"
+  >
+    <!-- Name Field -->
+    <div>
+      <label for="customerName" class="block text-gray-700 font-medium mb-1">
+        Name:
+      </label>
+      <input
+        type="text"
+        id="customerName"
+        name="customerName"
+        required
+        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
+      />
+    </div>
+
+    <!-- Mobile Field -->
+    <div>
+      <label for="mobile" class="block text-gray-700 font-medium mb-1">
+        Mobile Number:
+      </label>
+      <input
+        type="text"
+        id="mobile"
+        name="mobile"
+        required
+        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
+      />
+    </div>
+
+    <!-- Submit Button -->
+    <button
+      type="submit"
+      class="w-full bg-blue-500 text-white rounded py-2 hover:bg-blue-600 transition"
+    >
+      Next
+    </button>
+  </form>
 </body>
 </html>

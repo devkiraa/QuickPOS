@@ -3,20 +3,20 @@ canteen-management/
 │   ├── FoodItem.js
 │   ├── Upi.js
 │   ├── Order.js
-│   ├── Payment.js
-│   ├── Worker.js
-│   └── User.js       // new
+│   └── User.js    
 ├── routes/
 │   ├── orderRoutes.js
 │   ├── paymentRoutes.js
 │   ├── workerRoutes.js
-│   └── dashboardRoutes.js  // updated
+│   └── dashboardRoutes.js
 ├── views/
 │   ├── orderForm.ejs
 │   ├── menu.ejs
 │   ├── dashboard.ejs
 │   ├── settings.ejs
 │   ├── login.ejs
+│   ├── orderorm.ejs
+│   ├── orderList.ejs
 │   └── success.ejs
 ├── server.js
 └── package.json
