@@ -7,22 +7,81 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Include QRCode.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #fff;
+    }
+    /* Popup styling */
+    #upiPopup {
+      display: none; /* hidden by default */
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+    }
+    #upiPopupContent {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      min-width: 300px;
+    }
+  </style>
 </head>
-<body class="bg-green-100 font-sans">
+<body class="font-sans">
   <!-- Notification Div (initially hidden) -->
   <div id="notification" class="fixed top-0 left-0 right-0 bg-green-500 text-white p-4 text-center hidden"></div>
 
+  <!-- UPI Popup (for QR code + Payment Completed) -->
+  <div id="upiPopup" class="flex">
+    <div id="upiPopupContent" class="relative">
+      <h2 class="text-lg font-bold text-gray-700 mb-2">UPI Payment</h2>
+      <!-- QR code container -->
+      <div id="qrcode" class="mx-auto my-4"></div>
+      <button
+        onclick="paymentCompleted()"
+        class="mt-2 w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition text-sm"
+      >
+        Payment Completed
+      </button>
+      <!-- Close icon (optional) -->
+      <button
+        class="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+        onclick="closeUpiPopup()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
+             viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
   <div class="flex min-h-screen">
     <!-- Left Sidebar -->
-    <aside class="w-64 bg-white shadow-md flex flex-col">
+    <aside class="w-64 bg-white border-r shadow flex flex-col">
       <div class="p-6">
         <h2 class="text-2xl font-bold text-green-600">Canteen Logo</h2>
       </div>
       <nav class="flex-1">
         <ul>
-          <li><a href="/dashboard" class="block py-3 px-6 hover:bg-green-50">Home</a></li>
-          <li><a href="/orders/list" class="block py-3 px-6 hover:bg-green-50">Order List</a></li>
-          <li><a href="/dashboard/settings" class="block py-3 px-6 hover:bg-green-50">Settings</a></li>
+          <li>
+            <a href="/dashboard" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Home</a>
+          </li>
+          <li>
+            <a href="/orders/list" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Order List</a>
+          </li>
+          <li>
+            <a href="/orders/online" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Online Orders</a>
+          </li>
+          <li>
+            <a href="/dashboard/settings" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Settings</a>
+          </li>
         </ul>
       </nav>
       <div class="p-6 border-t">
@@ -35,50 +94,69 @@
 
     <!-- Main Content Area -->
     <div class="flex-1 flex flex-col">
-      <!-- Top Bar (simplified) -->
-      <header class="bg-white shadow p-4"></header>
+      <!-- Top Bar -->
+      <header class="bg-white shadow p-4 flex items-center justify-between">
+        <!-- Search bar -->
+        <div class="flex-1 max-w-md">
+          <input 
+            type="text"
+            placeholder="Search products..."
+            class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
+          />
+        </div>
+        <!-- Removed "Select Table" button as requested -->
+      </header>
 
-      <!-- Sub-Header for search -->
-      <div class="bg-green-50 p-4">
-        <input type="text" placeholder="Search items..." class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-400">
+      <!-- Sub-Header for Category Menu -->
+      <div class="bg-white p-4 border-b">
+        <ul class="flex space-x-4 text-sm">
+          <li>
+            <a
+              href="#"
+              class="px-4 py-2 bg-white text-green-600 border border-green-600 rounded hover:bg-green-50"
+              onclick="filterBySection('All')"
+            >
+              All
+            </a>
+          </li>
+          <% sections.forEach(section => { %>
+            <li>
+              <a
+                href="#"
+                class="px-4 py-2 bg-white text-green-600 border border-green-600 rounded hover:bg-green-50"
+                onclick="filterBySection('<%= section %>')"
+              >
+                <%= section %>
+              </a>
+            </li>
+          <% }) %>
+        </ul>
       </div>
 
       <div class="flex flex-1 overflow-hidden">
         <!-- Main Panel: Food Menu -->
-        <main class="flex-1 p-6 overflow-y-auto">
-          <!-- Horizontal Category Menu (fetched from DB, includes "All") -->
-          <div class="mb-6">
-            <ul class="flex space-x-4">
-              <li>
-                <a href="#"
-                   class="px-4 py-2 bg-white text-green-500 border border-green-500 rounded hover:bg-green-100"
-                   onclick="filterBySection('All')">
-                  All
-                </a>
-              </li>
-              <% sections.forEach(section => { %>
-                <li>
-                  <a href="#"
-                     class="px-4 py-2 bg-white text-green-500 border border-green-500 rounded hover:bg-green-100"
-                     onclick="filterBySection('<%= section %>')">
-                    <%= section %>
-                  </a>
-                </li>
-              <% }) %>
-            </ul>
+        <main class="flex-1 p-4 overflow-y-auto">
+          <!-- Menu Title -->
+          <div class="mb-4 flex items-center">
+            <h2 class="text-xl font-semibold text-gray-800">Menu</h2>
           </div>
 
-          <!-- Special Menu Grid -->
-          <h2 class="text-2xl font-semibold text-green-700 mb-4">Special Menu for you</h2>
-          <div id="foodGrid" class="grid grid-cols-5 gap-4">
+          <!-- Food Items Grid -->
+          <div id="foodGrid" class="grid grid-cols-4 gap-4">
             <% foodItems.forEach(item => { %>
-              <div class="bg-white rounded-lg shadow overflow-hidden food-card" data-section="<%= item.section %>">
-                <img src="<%= item.imageUrl %>" alt="<%= item.name %>" class="w-full h-24 object-cover">
+              <div class="bg-white rounded-lg shadow-sm overflow-hidden food-card" data-section="<%= item.section %>">
+                <img
+                  src="<%= item.imageUrl %>"
+                  alt="<%= item.name %>"
+                  class="w-full h-32 object-cover"
+                />
                 <div class="p-2">
-                  <h3 class="text-sm font-semibold text-green-700"><%= item.name %></h3>
+                  <h3 class="text-sm font-semibold text-gray-700"><%= item.name %></h3>
                   <p class="text-xs text-gray-600">₹<%= item.price %></p>
-                  <button onclick="addToOrder('<%= item._id %>', '<%= item.name %>', '<%= item.price %>')"
-                          class="mt-1 w-full bg-green-500 text-white text-xs py-1 rounded hover:bg-green-600 transition">
+                  <button
+                    onclick="addToOrder('<%= item._id %>', '<%= item.name %>', '<%= item.price %>')"
+                    class="mt-2 w-full bg-green-500 text-white text-xs py-1 rounded hover:bg-green-600 transition"
+                  >
                     ADD
                   </button>
                 </div>
@@ -88,44 +166,69 @@
         </main>
 
         <!-- Right Panel: Order Details & Payment -->
-        <aside class="w-1/3 bg-white border-l p-6 overflow-y-auto">
-          <h2 class="text-xl font-bold text-green-700 mb-4">Order Details</h2>
-          <div id="orderDetails">
-            <p class="text-gray-600">No items selected.</p>
+        <aside class="w-1/3 bg-white border-l p-4 overflow-y-auto">
+          <!-- “Order Details” Title -->
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-800">Order Details</h2>
           </div>
+
+          <!-- Order Items -->
+          <div id="orderDetails" class="space-y-2">
+            <p class="text-gray-600 text-sm">No items selected.</p>
+          </div>
+
+          <!-- Totals -->
           <div id="orderTotals" class="mt-4 space-y-2 hidden">
-            <div class="flex justify-between">
+            <div class="flex justify-between text-sm">
               <span>Subtotal</span>
               <span id="subtotal">₹0.00</span>
             </div>
           </div>
+
           <!-- Payment Section -->
-          <div class="mt-6">
+          <div class="mt-6 border-t pt-4">
             <div class="mb-4">
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Payment Method</label>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">
+                Payment Method
+              </label>
               <div class="flex space-x-4">
-                <label class="inline-flex items-center">
-                  <input type="radio" name="paymentMode" value="Cash" class="form-radio" checked>
+                <label class="inline-flex items-center text-sm">
+                  <input
+                    type="radio"
+                    name="paymentMode"
+                    value="Cash"
+                    class="form-radio"
+                    checked
+                  />
                   <span class="ml-2">Cash</span>
                 </label>
-                <label class="inline-flex items-center">
-                  <input type="radio" name="paymentMode" value="UPI" class="form-radio">
+                <label class="inline-flex items-center text-sm">
+                  <input
+                    type="radio"
+                    name="paymentMode"
+                    value="UPI"
+                    class="form-radio"
+                  />
                   <span class="ml-2">UPI</span>
                 </label>
               </div>
             </div>
-            <!-- UPI Payment Section: shows active UPI id and QR code if available -->
+
+            <!-- UPI Payment Section (hidden initially) -->
             <div id="upiSection" class="mb-4 hidden">
-              <p class="text-sm text-gray-700">Active UPI ID: <strong><%= activeUpi ? activeUpi.upiId : "Not Set" %></strong></p>
-              <div id="qrcode" class="mt-2"></div>
-              <button onclick="completeOrder()" class="mt-2 w-full bg-green-600 text-white py-1 rounded hover:bg-green-700 transition">Complete Order</button>
+              <p class="text-sm text-gray-700 mb-2">
+                Active UPI ID:
+                <strong><%= activeUpi ? activeUpi.upiId : "Not Set" %></strong>
+              </p>
             </div>
-            <!-- For Cash, just show the Make Order button -->
-            <div id="cashSection">
-              <button onclick="makeOrder()" class="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 transition">
-                Make Order
-              </button>
-            </div>
+
+            <!-- Common "Make Order" Button -->
+            <button
+              onclick="makeOrder()"
+              class="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 transition text-sm"
+            >
+              Make Order
+            </button>
           </div>
         </aside>
       </div>
@@ -138,19 +241,18 @@
     document.querySelectorAll('input[name="paymentMode"]').forEach(radio => {
       radio.addEventListener('change', function() {
         if (this.value === 'UPI') {
-          document.getElementById('cashSection').classList.add('hidden');
           document.getElementById('upiSection').classList.remove('hidden');
-          // Generate QR code using active UPI id and current subtotal (after a short delay to ensure orderTotals updated)
-          setTimeout(generateQRCode, 500);
         } else {
           document.getElementById('upiSection').classList.add('hidden');
-          document.getElementById('cashSection').classList.remove('hidden');
         }
       });
     });
 
     // Global order object: key = foodItem id, value = { name, price, quantity }
     let orderItems = {};
+
+    // Store the newly created order ID so we can update it to "Paid"
+    let currentOrderId = null;
 
     // Function to add item to order
     function addToOrder(id, name, price) {
@@ -187,27 +289,45 @@
 
       let subtotal = 0;
       if (Object.keys(orderItems).length === 0) {
-        orderDetailsDiv.innerHTML = '<p class="text-gray-600">No items selected.</p>';
+        orderDetailsDiv.innerHTML = '<p class="text-gray-600 text-sm">No items selected.</p>';
         orderTotalsDiv.classList.add('hidden');
         return;
       }
       orderTotalsDiv.classList.remove('hidden');
 
       const ul = document.createElement('ul');
+      ul.className = "divide-y";
       for (const id in orderItems) {
         const item = orderItems[id];
         subtotal += item.price * item.quantity;
         const li = document.createElement('li');
-        li.className = "flex justify-between items-center py-2 border-b";
+        li.className = "flex justify-between items-center py-2";
         li.innerHTML = `
-          <span class="text-sm">${item.name}</span>
+          <span class="text-sm text-gray-700">${item.name}</span>
           <div class="flex items-center space-x-2">
-            <button onclick="updateQuantity('${id}', -1)" class="px-2 py-1 bg-gray-200 rounded">-</button>
+            <button
+              onclick="updateQuantity('${id}', -1)"
+              class="px-2 py-1 bg-gray-200 rounded text-sm"
+            >
+              -
+            </button>
             <span class="text-sm">${item.quantity}</span>
-            <button onclick="updateQuantity('${id}', 1)" class="px-2 py-1 bg-gray-200 rounded">+</button>
+            <button
+              onclick="updateQuantity('${id}', 1)"
+              class="px-2 py-1 bg-gray-200 rounded text-sm"
+            >
+              +
+            </button>
           </div>
-          <span class="text-sm">₹${(item.price * item.quantity).toFixed(2)}</span>
-          <button onclick="removeFromOrder('${id}')" class="text-red-500 ml-2 text-xs">Remove</button>
+          <span class="text-sm text-gray-700">
+            ₹${(item.price * item.quantity).toFixed(2)}
+          </span>
+          <button
+            onclick="removeFromOrder('${id}')"
+            class="text-red-500 ml-2 text-xs"
+          >
+            Remove
+          </button>
         `;
         ul.appendChild(li);
       }
@@ -233,98 +353,33 @@
       return "#" + num;
     }
 
-    // Function to generate QR code for UPI payment
-    function generateQRCode() {
-      // Get current subtotal from the page
-      const subtotalText = document.getElementById('subtotal').innerText;
-      // Extract numeric value (assumes format "₹<amount>")
-      const amount = parseFloat(subtotalText.replace('₹',''));
-      
-      // Get the active UPI id from the server-passed variable (injected in template)
-      const activeUpi = "<%= activeUpi ? activeUpi.upiId : '' %>";
-      
-      if (!activeUpi) {
-        alert("No active UPI ID set in the system.");
-        return;
-      }
-      
-      // Build UPI URL (this is a sample; adjust parameters as needed)
-      const upiUrl = `upi://pay?pa=${activeUpi}&pn=Canteen&am=${amount.toFixed(2)}&cu=INR`;
-      
-      // Generate QR code in the div with id "qrcode"
-      document.getElementById('qrcode').innerHTML = ''; // Clear previous
-      new QRCode(document.getElementById('qrcode'), {
-        text: upiUrl,
-        width: 128,
-        height: 128,
-      });
+    // Show UPI popup, generate QR code
+    function showUpiPopup() {
+      const popup = document.getElementById('upiPopup');
+      popup.style.display = 'flex'; // show
+      generateQRCode(); // generate the QR code
     }
 
-    // Function to place the order via AJAX (for Cash payments)
+    // Close UPI popup
+    function closeUpiPopup() {
+      const popup = document.getElementById('upiPopup');
+      popup.style.display = 'none';
+    }
+
+    // “Make Order” button handler
     function makeOrder() {
       if (Object.keys(orderItems).length === 0) {
         alert("Please add at least one item to the order.");
         return;
       }
-      
       const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
-      
-      if (paymentMode === "Cash") {
-        const orderId = generateOrderId();
-        const data = {
-          orderId: orderId,
-          paymentMode: paymentMode,
-          upiId: "", // Not needed for Cash
-          orderItems: JSON.stringify(orderItems)
-        };
 
-        fetch("/orders/place-pos", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(data)
-        })
-        .then(response => response.json())
-        .then(result => {
-          if(result.success) {
-            showNotification("Order Placed: " + orderId);
-            orderItems = {};
-            updateOrderDetails();
-          } else {
-            alert("Error placing order: " + result.message);
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          alert("Error placing order.");
-        });
-      } else {
-        // For UPI, do nothing here; the process continues with the "Complete Order" button.
-        alert("Please scan the QR code and then click 'Complete Order'.");
-      }
-    }
-
-    // Function to complete the UPI order (after QR scan/payment confirmation)
-    function completeOrder() {
-      if (Object.keys(orderItems).length === 0) {
-        alert("No items in order.");
-        return;
-      }
-      
-      const paymentMode = "UPI";
-      // Active UPI is fetched from server and already shown as QR code
-      const activeUpi = "<%= activeUpi ? activeUpi.upiId : '' %>";
-      if (!activeUpi) {
-        alert("No active UPI ID set.");
-        return;
-      }
-      
+      // 1) Create order in DB with "Pending" status
       const orderId = generateOrderId();
       const data = {
         orderId: orderId,
         paymentMode: paymentMode,
-        upiId: activeUpi,
+        upiId: (paymentMode === 'UPI') ? "<%= activeUpi ? activeUpi.upiId : '' %>" : "",
         orderItems: JSON.stringify(orderItems)
       };
 
@@ -338,9 +393,18 @@
       .then(response => response.json())
       .then(result => {
         if(result.success) {
-          showNotification("Order Placed: " + orderId);
-          orderItems = {};
-          updateOrderDetails();
+          // Store the newly created order ID
+          currentOrderId = result.orderId || orderId;
+          showNotification("Order Placed: " + currentOrderId);
+
+          // If UPI, show popup for QR code & final payment
+          if (paymentMode === "UPI") {
+            showUpiPopup();
+          } else {
+            // If Cash, we can clear items right away
+            orderItems = {};
+            updateOrderDetails();
+          }
         } else {
           alert("Error placing order: " + result.message);
         }
@@ -351,7 +415,66 @@
       });
     }
 
-    // Function to show a notification at the top of the page
+    // Generate QR code for UPI payment
+    function generateQRCode() {
+      const subtotalText = document.getElementById('subtotal').innerText;
+      const amount = parseFloat(subtotalText.replace('₹',''));
+      const activeUpi = "<%= activeUpi ? activeUpi.upiId : '' %>";
+
+      if (!activeUpi) {
+        alert("No active UPI ID set in the system.");
+        return;
+      }
+
+      const upiUrl = `upi://pay?pa=${activeUpi}&pn=Canteen&am=${amount.toFixed(2)}&cu=INR`;
+      document.getElementById('qrcode').innerHTML = '';
+      new QRCode(document.getElementById('qrcode'), {
+        text: upiUrl,
+        width: 128,
+        height: 128,
+      });
+    }
+
+    // Called when “Payment Completed” is clicked in the popup
+    function paymentCompleted() {
+      completeOrder(); // calls the existing function to update status to "Paid"
+      closeUpiPopup();
+    }
+
+    // “Complete Order” logic – updates existing order from “Pending” to “Paid”
+    function completeOrder() {
+      if (!currentOrderId) {
+        alert("No current order to complete.");
+        return;
+      }
+      // Send request to update the order status to "Paid"
+      fetch("/orders/complete-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          orderId: currentOrderId
+        })
+      })
+      .then(response => response.json())
+      .then(result => {
+        if(result.success) {
+          showNotification("Order Updated to Paid: " + currentOrderId);
+          // Clear items and update UI
+          orderItems = {};
+          updateOrderDetails();
+          currentOrderId = null;
+        } else {
+          alert("Error updating order status: " + result.message);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Error updating order status.");
+      });
+    }
+    // Notification
     function showNotification(message) {
       const notificationDiv = document.getElementById('notification');
       notificationDiv.innerText = message;

@@ -1,3 +1,4 @@
+<!-- views/orderList.ejs -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,21 +6,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Order List - Canteen POS</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Include QRCode.js for UPI QR generation -->
+  <!-- Include QRCode.js if needed -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
 </head>
-<body class="bg-green-100 font-sans">
+<body class="bg-green-100">
   <div class="flex min-h-screen">
-    <!-- Left Sidebar (reuse from dashboard) -->
+    <!-- Sidebar -->
     <aside class="w-64 bg-white shadow-md flex flex-col">
       <div class="p-6">
         <h2 class="text-2xl font-bold text-green-600">Canteen Logo</h2>
       </div>
       <nav class="flex-1">
         <ul>
-            <li><a href="/dashboard" class="block py-3 px-6 hover:bg-green-50">Home</a></li>
-            <li><a href="/orders/list" class="block py-3 px-6 hover:bg-green-50">Order List</a></li>
-            <li><a href="/dashboard/settings" class="block py-3 px-6 hover:bg-green-50">Settings</a></li>
+          <li>
+            <a href="/dashboard" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Home</a>
+          </li>
+          <li>
+            <a href="/orders/list" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Order List</a>
+          </li>
+          <li>
+            <a href="/orders/online" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Online Orders</a>
+          </li>
+          <li>
+            <a href="/dashboard/settings" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Settings</a>
+          </li>
         </ul>
       </nav>
       <div class="p-6 border-t">
@@ -30,45 +44,59 @@
       </div>
     </aside>
 
-    <!-- Main Content Area -->
+    <!-- Main Content -->
     <div class="flex-1 flex flex-col">
-      <!-- Top Bar -->
-      <header class="bg-white shadow p-4">
+      <!-- Top Bar with Filter & Export -->
+      <header class="bg-white shadow p-4 flex items-center justify-between">
         <h1 class="text-3xl text-green-700 font-bold">Order List</h1>
+        <div class="flex items-center space-x-2">
+          <input type="date" id="filterDate" class="border rounded px-2 py-1" />
+          <button onclick="filterOrdersByDate()" class="bg-blue-500 text-white px-3 py-1 rounded">Filter</button>
+          <button onclick="exportTableToCSV('orders.csv')" class="bg-green-500 text-white px-3 py-1 rounded">Export CSV</button>
+        </div>
       </header>
 
+      <!-- Orders Table -->
       <div class="p-6 overflow-y-auto">
-        <!-- Order List Table -->
-        <table class="min-w-full bg-white">
-          <thead>
-            <tr class="bg-green-500 text-white">
-              <th class="py-2 px-4">Order ID</th>
-              <th class="py-2 px-4">Customer</th>
-              <th class="py-2 px-4">Payment</th>
-              <th class="py-2 px-4">Status</th>
-              <th class="py-2 px-4">Actions</th>
+        <table class="min-w-full bg-white border rounded-lg shadow" id="ordersTable">
+          <thead class="bg-green-500 text-white">
+            <tr>
+              <th class="py-3 px-4">No</th>
+              <th class="py-3 px-4">Ref Number</th>
+              <th class="py-3 px-4">Customer</th>
+              <th class="py-3 px-4">Mobile</th>
+              <th class="py-3 px-4">Total (₹)</th>
+              <th class="py-3 px-4">Status</th>
+              <th class="py-3 px-4">Date &amp; Time</th>
+              <th class="py-3 px-4">Actions</th>
             </tr>
           </thead>
-          <tbody>
-            <% orders.forEach(order => { %>
+          <tbody id="orderTableBody">
+            <% orders.forEach((order, index) => { %>
               <tr class="border-b">
-                <td class="py-2 px-4"><%= order.orderId %></td>
+                <td class="py-2 px-4 text-center"><%= index + 1 %></td>
+                <td class="py-2 px-4 text-center font-semibold"><%= order.orderNumber %></td>
                 <td class="py-2 px-4"><%= order.customerName %></td>
-                <td class="py-2 px-4">
-                  <%= order.paymentMode %>
-                  <% if(order.paymentMode === 'UPI') { %>
-                    (<%= order.upiId %>)
-                  <% } %>
-                </td>
-                <td class="py-2 px-4"><%= order.status %></td>
-                <td class="py-2 px-4">
+                <td class="py-2 px-4"><%= order.mobile %></td>
+                <td class="py-2 px-4 text-right font-semibold">₹<%= order.totalAmount.toFixed(2) %></td>
+                <td class="py-2 px-4 text-center"><%= order.status %></td>
+                <td class="py-2 px-4 text-center"><%= new Date(order.createdAt).toLocaleString() %></td>
+                <td class="py-2 px-4 text-center">
                   <button onclick="modifyOrder('<%= order.orderId %>')" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">Modify</button>
                   <button onclick="deleteOrder('<%= order.orderId %>')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 ml-2">Delete</button>
+                  <button onclick="viewOrderItems('<%= order.orderId %>')" class="bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 ml-2">View</button>
                 </td>
               </tr>
             <% }) %>
           </tbody>
         </table>
+
+        <!-- Pagination Controls -->
+        <div class="mt-4 flex justify-center items-center space-x-4">
+          <button id="prevPage" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded" onclick="prevPage()">← Prev</button>
+          <span id="pageInfo" class="text-gray-700"></span>
+          <button id="nextPage" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded" onclick="nextPage()">Next →</button>
+        </div>
       </div>
     </div>
   </div>
@@ -79,9 +107,7 @@
       <h3 class="text-lg font-bold mb-2">Modify Order: <span id="modalOrderId"></span></h3>
       <p class="mb-2 text-sm text-gray-700">Original Total: ₹<span id="originalTotal">0.00</span></p>
       <p class="mb-2 text-sm text-gray-700">Current Order Items:</p>
-      <div id="modalOrderItems" class="mb-4 border p-2 rounded">
-        <!-- Dynamically populated list of items with plus/minus buttons -->
-      </div>
+      <div id="modalOrderItems" class="mb-4 border p-2 rounded"></div>
       <div class="mb-4">
         <label class="block text-sm font-semibold text-gray-700 mb-1">Add New Item</label>
         <select id="newItemSelect" class="w-full border rounded px-2 py-1">
@@ -97,7 +123,6 @@
       </div>
       <p class="mb-2 text-sm text-gray-700">New Total: ₹<span id="newTotal">0.00</span></p>
       <p class="mb-2 text-sm text-gray-700">Extra Amount Due: ₹<span id="extraDue">0.00</span></p>
-      <!-- Payment method selection in modal -->
       <div class="mb-4">
         <label class="block text-sm font-semibold text-gray-700 mb-1">Payment Method for Extra</label>
         <div class="flex space-x-4">
@@ -111,11 +136,9 @@
           </label>
         </div>
       </div>
-      <!-- UPI info section -->
       <div id="modalUPIInfo" class="mb-4 hidden">
         <p class="text-sm text-gray-700">Active UPI ID: <strong><%= activeUpi ? activeUpi.upiId : "Not Set" %></strong></p>
       </div>
-      <!-- UPI QR Code section -->
       <div id="modalUPISection" class="mb-4 hidden">
         <div id="modalQRCode" class="mb-2"></div>
       </div>
@@ -123,13 +146,157 @@
     </div>
   </div>
 
-  <!-- Inline Script for Order List & Modification -->
+  <!-- Modal for Viewing Order Items -->
+  <div id="viewModalOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+    <div id="viewModalContent" class="bg-white rounded p-6 w-96 relative">
+      <h3 class="text-lg font-bold mb-2">Order Items</h3>
+      <div id="viewOrderItems" class="mb-4"></div>
+      <button onclick="closeViewModal()" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">Close</button>
+    </div>
+  </div>
+
+  <!-- Inline Script -->
   <script>
+    // ========================
+    // Global Variables for Pagination & Auto-Refresh
+    // ========================
+    let currentPage = 1;
+    const rowsPerPage = 10;
+    let allOrders = [];
+
+    // ========================
+    // Auto-Refresh Orders every 5 seconds (AJAX)
+    // ========================
+    async function refreshOrders() {
+      try {
+        const res = await fetch('/orders/list?ajax=true');
+        const data = await res.json();
+        if (data.orders) {
+          setupPagination(data.orders);
+        }
+      } catch (err) {
+        console.error("Error refreshing orders:", err);
+      }
+    }
+    setInterval(refreshOrders, 5000);
+
+    // ========================
+    // Pagination Functions
+    // ========================
+    function setupPagination(orders) {
+      allOrders = orders;
+      currentPage = 1;
+      displayPage(currentPage);
+    }
+    function displayPage(page) {
+      const tableBody = document.getElementById("orderTableBody");
+      tableBody.innerHTML = "";
+      const start = (page - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      const pageOrders = allOrders.slice(start, end);
+      pageOrders.forEach((order, index) => {
+        const tr = document.createElement("tr");
+        tr.className = "border-b";
+        tr.innerHTML = `
+          <td class="py-2 px-4 text-center">${start + index + 1}</td>
+          <td class="py-2 px-4 text-center font-semibold">${order.orderNumber}</td>
+          <td class="py-2 px-4">${order.customerName}</td>
+          <td class="py-2 px-4">${order.mobile}</td>
+          <td class="py-2 px-4 text-right font-semibold">₹${order.totalAmount.toFixed(2)}</td>
+          <td class="py-2 px-4 text-center">${order.status}</td>
+          <td class="py-2 px-4 text-center">${new Date(order.createdAt).toLocaleString()}</td>
+          <td class="py-2 px-4 text-center">
+            <button onclick="modifyOrder('${order.orderId}')" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">Modify</button>
+            <button onclick="deleteOrder('${order.orderId}')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 ml-2">Delete</button>
+            <button onclick="viewOrderItems('${order.orderId}')" class="bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 ml-2">View</button>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+      document.getElementById("pageInfo").innerText = `Page ${currentPage} of ${Math.ceil(allOrders.length / rowsPerPage)}`;
+    }
+    function nextPage() {
+      if (currentPage * rowsPerPage < allOrders.length) {
+        currentPage++;
+        displayPage(currentPage);
+      }
+    }
+    function prevPage() {
+      if (currentPage > 1) {
+        currentPage--;
+        displayPage(currentPage);
+      }
+    }
+
+    // ========================
+    // CSV Export (Excluding Actions Column)
+    // ========================
+    function exportTableToCSV(filename) {
+      const csv = [];
+      const rows = document.querySelectorAll("table tr");
+      for (let i = 0; i < rows.length; i++) {
+        const row = [];
+        const cols = rows[i].querySelectorAll("td, th");
+        // Exclude the last column (Actions)
+        for (let j = 0; j < cols.length - 1; j++) {
+          let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim();
+          row.push('"' + data.replace(/"/g, '""') + '"');
+        }
+        csv.push(row.join(","));
+      }
+      const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+      const downloadLink = document.createElement("a");
+      downloadLink.download = filename;
+      downloadLink.href = window.URL.createObjectURL(csvFile);
+      downloadLink.style.display = "none";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+    }
+
+    // ========================
+    // Date Filter Functionality
+    // ========================
+    document.getElementById('filterDate').valueAsDate = new Date();
+    function filterOrdersByDate() {
+      const selectedDate = new Date(document.getElementById('filterDate').value);
+      const filtered = allOrders.filter(order => {
+        const orderDate = new Date(order.createdAt);
+        return orderDate.toDateString() === selectedDate.toDateString();
+      });
+      displayPageFromArray(filtered);
+    }
+    function displayPageFromArray(ordersArray) {
+      const tableBody = document.getElementById("orderTableBody");
+      tableBody.innerHTML = "";
+      ordersArray.forEach((order, index) => {
+        const tr = document.createElement("tr");
+        tr.className = "border-b";
+        tr.innerHTML = `
+          <td class="py-2 px-4 text-center">${index + 1}</td>
+          <td class="py-2 px-4 text-center font-semibold">${order.orderNumber}</td>
+          <td class="py-2 px-4">${order.customerName}</td>
+          <td class="py-2 px-4">${order.mobile}</td>
+          <td class="py-2 px-4 text-right font-semibold">₹${order.totalAmount.toFixed(2)}</td>
+          <td class="py-2 px-4 text-center">${order.status}</td>
+          <td class="py-2 px-4 text-center">${new Date(order.createdAt).toLocaleString()}</td>
+          <td class="py-2 px-4 text-center">
+            <button onclick="modifyOrder('${order.orderId}')" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">Modify</button>
+            <button onclick="deleteOrder('${order.orderId}')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 ml-2">Delete</button>
+            <button onclick="viewOrderItems('${order.orderId}')" class="bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 ml-2">View</button>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+      document.getElementById("pageInfo").innerText = `Filtered (${ordersArray.length} orders)`;
+    }
+
+    // ========================
+    // Modal & Modification Functions
+    // ========================
     let currentOrderId = "";
-    let baseTotal = 0; // The original order total (order.orderData.originalTotal)
-    let orderItems = {}; // Holds modifications (additional items) { itemId: { name, price, quantity } }
-  
-    // Function to fetch order details and open modal for modification
+    let baseTotal = 0;
+    let orderItems = {};
+
     function modifyOrder(orderId) {
       currentOrderId = orderId;
       fetch(`/orders/details/${encodeURIComponent(orderId)}`)
@@ -137,10 +304,8 @@
         .then(result => {
           if(result.success) {
             document.getElementById('modalOrderId').innerText = orderId;
-            // Set baseTotal from order.orderData.originalTotal if available; otherwise, use current total.
             baseTotal = (result.order.orderData && result.order.orderData.originalTotal) || result.order.totalAmount || 0;
             document.getElementById('originalTotal').innerText = baseTotal.toFixed(2);
-            // Initialize orderItems with existing additionalItems if present, otherwise empty.
             orderItems = (result.order.orderData && result.order.orderData.additionalItems) || {};
             updateModalTotals();
             document.getElementById('modalOverlay').classList.remove('hidden');
@@ -153,11 +318,11 @@
           alert("Error fetching order details.");
         });
     }
-  
-    // Close modal if click outside content
+
     document.getElementById('modalOverlay').addEventListener('click', function(e) {
       if (e.target === this) closeModal();
     });
+
     function closeModal() {
       document.getElementById('modalOverlay').classList.add('hidden');
       document.getElementById('modalOrderItems').innerHTML = "";
@@ -165,8 +330,7 @@
       document.getElementById('newItemQty').value = "1";
       document.getElementById('modalQRCode').innerHTML = "";
     }
-  
-    // Update modal totals and display current order items
+
     function updateModalTotals() {
       let addedTotal = 0;
       const modalOrderItemsDiv = document.getElementById('modalOrderItems');
@@ -186,13 +350,12 @@
         `;
         modalOrderItemsDiv.appendChild(div);
       }
-      // New total is baseTotal plus modifications
       let newTotal = baseTotal + addedTotal;
       document.getElementById('newTotal').innerText = newTotal.toFixed(2);
       let extraDue = newTotal - baseTotal;
       document.getElementById('extraDue').innerText = extraDue.toFixed(2);
     }
-  
+
     function updateModalQuantity(id, delta) {
       if (orderItems[id]) {
         orderItems[id].quantity += delta;
@@ -200,8 +363,7 @@
       }
       updateModalTotals();
     }
-  
-    // Function to add new item from dropdown in modal
+
     function addNewItem() {
       const select = document.getElementById('newItemSelect');
       const qty = parseInt(document.getElementById('newItemQty').value);
@@ -224,8 +386,7 @@
       select.selectedIndex = 0;
       document.getElementById('newItemQty').value = "1";
     }
-  
-    // Payment method selection in modal
+
     document.querySelectorAll('input[name="modalPaymentMode"]').forEach(radio => {
       radio.addEventListener('change', function() {
         if (this.value === 'UPI') {
@@ -241,8 +402,7 @@
         }
       });
     });
-  
-    // Function to generate QR code in modal
+
     function generateModalQRCode(amount, upiId) {
       const upiUrl = `upi://pay?pa=${upiId}&pn=Canteen&am=${amount.toFixed(2)}&cu=INR`;
       document.getElementById('modalQRCode').innerHTML = "";
@@ -252,8 +412,7 @@
         height: 128,
       });
     }
-  
-    // Function to complete order modification
+
     function completeModification() {
       let extraDue = Math.max(parseFloat(document.getElementById('newTotal').innerText) - baseTotal, 0);
       const paymentMode = document.querySelector('input[name="modalPaymentMode"]:checked').value;
@@ -267,9 +426,7 @@
       }
       fetch(`/orders/modify/${encodeURIComponent(currentOrderId)}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           extraAmount: extraDue,
           additionalItems: JSON.stringify(orderItems),
@@ -292,8 +449,7 @@
         alert("Error modifying order.");
       });
     }
-  
-    // Function to delete an order
+
     function deleteOrder(orderId) {
       if (confirm("Are you sure you want to delete order " + orderId + "?")) {
         fetch(`/orders/delete/${encodeURIComponent(orderId)}`, { method: "DELETE" })
@@ -312,8 +468,7 @@
         });
       }
     }
-  
-    // Function to show a notification at the top of the page
+
     function showNotification(message) {
       const notificationDiv = document.getElementById('notification');
       notificationDiv.innerText = message;
@@ -322,6 +477,42 @@
         notificationDiv.classList.add('hidden');
       }, 3000);
     }
-  </script>  
+
+    // ========================
+    // New: View Order Items Modal
+    // ========================
+    async function viewOrderItems(orderId) {
+      try {
+        const res = await fetch(`/orders/details/${encodeURIComponent(orderId)}`);
+        const data = await res.json();
+        if (data.success && data.order) {
+          const modal = document.getElementById('viewModalOverlay');
+          const content = document.getElementById('viewOrderItems');
+          content.innerHTML = "";
+          if(data.order.items && data.order.items.length > 0) {
+            const ul = document.createElement('ul');
+            ul.className = "list-disc list-inside";
+            data.order.items.forEach(item => {
+              const li = document.createElement('li');
+              li.innerText = `${item.foodItem ? item.foodItem.name : "Item"} — Qty: ${item.quantity}`;
+              ul.appendChild(li);
+            });
+            content.appendChild(ul);
+          } else {
+            content.innerHTML = "<p>No items found for this order.</p>";
+          }
+          document.getElementById('viewModalOverlay').style.display = "flex";
+        } else {
+          alert("Error fetching order details.");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Error fetching order details.");
+      }
+    }
+    function closeViewModal() {
+      document.getElementById('viewModalOverlay').style.display = "none";
+    }
+  </script>
 </body>
 </html>

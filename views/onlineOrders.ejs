@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Online Orders - Payment Reception</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #fff;
+    }
+    @media (max-width: 640px) {
+      table { font-size: 0.875rem; }
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div class="flex min-h-screen">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r shadow flex flex-col">
+      <div class="p-6">
+        <h2 class="text-2xl font-bold text-green-600">Canteen Logo</h2>
+      </div>
+      <nav class="flex-1">
+        <ul>
+            <li>
+              <a href="/dashboard" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Home</a>
+            </li>
+            <li>
+              <a href="/orders/list" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Order List</a>
+            </li>
+            <li>
+              <a href="/orders/online" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Online Orders</a>
+            </li>
+            <li>
+              <a href="/dashboard/settings" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Settings</a>
+            </li>
+          </ul>
+      </nav>
+      <div class="p-6 border-t">
+        <div class="flex items-center">
+          <span class="ml-3 text-green-600 font-semibold"><%= user.username %></span>
+          <a href="/dashboard/logout" class="ml-auto text-red-500 hover:underline">Logout</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6">
+      <h1 class="text-3xl font-bold text-green-600 mb-6 text-center">Online Orders</h1>
+      <table class="min-w-full bg-white rounded-lg shadow overflow-hidden">
+        <thead class="bg-green-500 text-white">
+          <tr>
+            <th class="py-3 px-4">Ref Number</th>
+            <th class="py-3 px-4">Order ID (Secure)</th>
+            <th class="py-3 px-4">Customer</th>
+            <th class="py-3 px-4">Mobile</th>
+            <th class="py-3 px-4">Total (₹)</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% orders.forEach(order => { %>
+            <tr class="border-b">
+              <td class="py-2 px-4 text-center font-semibold"><%= order.orderNumber %></td>
+              <td class="py-2 px-4 text-center"><%= order.orderId %></td>
+              <td class="py-2 px-4"><%= order.customerName %></td>
+              <td class="py-2 px-4"><%= order.mobile %></td>
+              <td class="py-2 px-4 text-right font-semibold">₹<%= order.totalAmount.toFixed(2) %></td>
+              <td class="py-2 px-4 text-center"><%= order.status %></td>
+              <td class="py-2 px-4 text-center">
+                <% if(order.status === "Pending") { %>
+                  <button onclick="markAsPaid('<%= order.orderId %>')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">Mark as Paid</button>
+                <% } else { %>
+                  <span class="text-green-600 font-bold">Paid</span>
+                <% } %>
+              </td>
+            </tr>
+            <tr class="bg-gray-50">
+              <td colspan="7" class="py-2 px-4">
+                <strong>Items:</strong>
+                <ul class="list-disc list-inside">
+                  <% order.items.forEach(function(item) { %>
+                    <li>
+                      <%= item.foodItem ? item.foodItem.name : "Item" %> &mdash; Qty: <%= item.quantity %>
+                    </li>
+                  <% }); %>
+                </ul>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Inline Script for Mark as Paid -->
+  <script>
+    async function markAsPaid(orderId) {
+      if (confirm("Mark order " + orderId + " as Paid?")) {
+        try {
+          const res = await fetch('/orders/complete-payment', {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId })
+          });
+          const data = await res.json();
+          if (data.success) {
+            alert("Order " + orderId + " marked as Paid.");
+            location.reload();
+          } else {
+            alert("Error: " + data.message);
+          }
+        } catch (error) {
+          console.error(error);
+          alert("Error marking order as Paid.");
+        }
+      }
+    }
+  </script>
+</body>
+</html>

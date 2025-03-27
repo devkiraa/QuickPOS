@@ -1,3 +1,4 @@
+// routes/orderRoutes.js
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
@@ -32,18 +33,17 @@ async function generateNextCounterOrderNumber() {
    Online Orders (via Order Form and Menu)
    ======================================================== */
 
-// GET: Render order form to collect customer details
+// GET: Render order form to collect customer details (Online)
 router.get('/new', (req, res) => {
   res.render('orderForm');
 });
 
-// POST: Submit customer details and generate order id (online orders)
+// POST: Submit customer details and generate order id (Online)
 router.post('/new', async (req, res) => {
   try {
     const { customerName, mobile } = req.body;
-    // Generate a UUID for online order id.
+    // For online orders, orderId is a UUID and we also generate a sequential orderNumber.
     const orderId = uuidv4();
-    // Also generate a sequential reference number for online orders.
     const orderNumber = await generateNextOnlineOrderNumber();
     const newOrder = new Order({
       orderId,
@@ -59,7 +59,7 @@ router.post('/new', async (req, res) => {
     res.redirect(`/orders/menu/${orderId}`);
   } catch (err) {
     console.error(err);
-    res.status(500).send("Error creating new order");
+    res.status(500).send("Error creating new online order");
   }
 });
 
@@ -67,20 +67,13 @@ router.post('/new', async (req, res) => {
 router.get('/menu/:orderId', async (req, res) => {
   try {
     const foodItems = await FoodItem.find({});
-    // Get all unique section names from your FoodItem documents
     const sections = await FoodItem.distinct('section');
-
-    res.render('menu', {
-      orderId: req.params.orderId,
-      foodItems,
-      sections  // pass sections here
-    });
+    res.render('menu', { orderId: req.params.orderId, foodItems, sections });
   } catch (err) {
     console.error(err);
     res.status(500).send("Error loading menu");
   }
 });
-
 
 // POST: Place Online Order from menu form submission
 router.post('/place/:orderId', async (req, res) => {
@@ -93,7 +86,7 @@ router.post('/place/:orderId', async (req, res) => {
     for (const item of itemsData) {
       totalAmount += item.price * item.quantity;
       itemsArray.push({
-        foodItem: item.id, // assuming item.id is a FoodItem _id as a string
+        foodItem: item.id, // item.id is the FoodItem _id (as string)
         quantity: item.quantity
       });
     }
@@ -106,8 +99,8 @@ router.post('/place/:orderId', async (req, res) => {
     await order.save();
     res.redirect('/orders/success?orderId=' + orderId);
   } catch (err) {
-    console.error("Error placing order:", err);
-    res.status(500).send("Error placing order");
+    console.error("Error placing online order:", err);
+    res.status(500).send("Error placing online order");
   }
 });
 
@@ -119,23 +112,20 @@ router.post('/place/:orderId', async (req, res) => {
 router.post('/place-pos', async (req, res) => {
   try {
     const { paymentMode, upiId, orderItems, orderSource } = req.body;
-    // For POS orders from counter, generate a new sequential order number and orderId.
     let orderId, orderNumber;
     if (orderSource === "counter") {
       orderNumber = await generateNextCounterOrderNumber();
       orderId = "#" + orderNumber;
     } else {
-      // For online POS orders, generate a new UUID.
       orderId = uuidv4();
     }
-    // Parse the order items (expected as JSON string)
+    // Parse order items (expected as JSON string)
     const parsedOrderItems = typeof orderItems === 'string' ? JSON.parse(orderItems) : orderItems;
     let totalAmount = 0;
     const itemsArray = [];
     for (const key in parsedOrderItems) {
       const item = parsedOrderItems[key];
       totalAmount += item.price * item.quantity;
-      // Convert id to ObjectId
       itemsArray.push({
         foodItem: new mongoose.Types.ObjectId(item.id),
         quantity: item.quantity
@@ -143,7 +133,7 @@ router.post('/place-pos', async (req, res) => {
     }
     const newOrder = new Order({
       orderId,
-      orderNumber, // Will be undefined for non-counter orders.
+      orderNumber, // will be undefined for non-counter orders.
       customerName: "POS Customer",
       mobile: "N/A",
       items: itemsArray,
@@ -167,6 +157,7 @@ router.post('/place-pos', async (req, res) => {
    ======================================================== */
 
 // GET: Order List (latest orders first)
+// (For security, the page can show orderNumber for reference and orderId for internal viewing.)
 router.get('/list', async (req, res) => {
   try {
     const orders = await Order.find({}).sort({ createdAt: -1 });
@@ -205,10 +196,7 @@ router.post('/modify/:orderId', async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
     
-    // Initialize orderData if not already present.
     order.orderData = order.orderData || {};
-    
-    // On first modification, preserve the original total.
     if (!order.orderData.originalTotal) {
       order.orderData.originalTotal = order.totalAmount || 0;
       console.log("Setting originalTotal to:", order.orderData.originalTotal);
@@ -216,7 +204,6 @@ router.post('/modify/:orderId', async (req, res) => {
     const originalTotal = order.orderData.originalTotal;
     console.log("Original total:", originalTotal);
     
-    // Merge additional items if provided.
     let existingAdditional = order.orderData.additionalItems || {};
     if (additionalItems) {
       console.log("Received additionalItems:", additionalItems);
@@ -280,19 +267,50 @@ router.delete('/delete/:orderId', async (req, res) => {
   }
 });
 
-// GET: Success Page (show order details if orderId provided)
+// NEW: Complete Payment Endpoint - update order status from "Pending" to "Paid"
+router.post('/complete-payment', async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    const order = await Order.findOne({ orderId });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    order.status = "Paid";
+    await order.save();
+    res.json({ success: true, orderId });
+  } catch (err) {
+    console.error("Error in complete-payment endpoint:", err);
+    res.status(500).json({ success: false, message: "Error completing payment: " + err.message });
+  }
+});
+
+// GET: Success Page (display order details if orderId provided)
 router.get('/success', async (req, res) => {
   try {
     const orderId = req.query.orderId;
     let order = null;
     if (orderId) {
-      // Populate items.foodItem for display.
       order = await Order.findOne({ orderId }).populate('items.foodItem').exec();
     }
     res.render('success', { order });
   } catch (err) {
     console.error(err);
     res.render('success', { order: null });
+  }
+});
+
+// NEW: Online Orders Page for Payment Reception
+router.get('/online', async (req, res) => {
+  try {
+    // Fetch online orders only
+    const orders = await Order.find({ orderSource: "online" })
+      .sort({ createdAt: -1 })
+      .populate('items.foodItem')
+      .exec();
+    res.render('onlineOrders', { orders, user: req.session.user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error fetching online orders");
   }
 });
 
