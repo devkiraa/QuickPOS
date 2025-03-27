@@ -14,6 +14,16 @@
     @media (max-width: 640px) {
       table { font-size: 0.875rem; }
     }
+    /* Modal styles */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
   </style>
 </head>
 <body class="bg-gray-50">
@@ -25,19 +35,19 @@
       </div>
       <nav class="flex-1">
         <ul>
-            <li>
-              <a href="/dashboard" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Home</a>
-            </li>
-            <li>
-              <a href="/orders/list" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Order List</a>
-            </li>
-            <li>
-              <a href="/orders/online" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Online Orders</a>
-            </li>
-            <li>
-              <a href="/dashboard/settings" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Settings</a>
-            </li>
-          </ul>
+          <li>
+            <a href="/dashboard" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Home</a>
+          </li>
+          <li>
+            <a href="/orders/list" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Order List</a>
+          </li>
+          <li>
+            <a href="/orders/online" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Online Orders</a>
+          </li>
+          <li>
+            <a href="/dashboard/settings" class="block py-3 px-6 text-gray-700 hover:bg-gray-50">Settings</a>
+          </li>
+        </ul>
       </nav>
       <div class="p-6 border-t">
         <div class="flex items-center">
@@ -73,7 +83,7 @@
               <td class="py-2 px-4 text-center"><%= order.status %></td>
               <td class="py-2 px-4 text-center">
                 <% if(order.status === "Pending") { %>
-                  <button onclick="markAsPaid('<%= order.orderId %>')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">Mark as Paid</button>
+                  <button onclick="openPaymentModal('<%= order.orderId %>', <%= order.totalAmount %>)" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">Continue Order</button>
                 <% } else { %>
                   <span class="text-green-600 font-bold">Paid</span>
                 <% } %>
@@ -97,28 +107,169 @@
     </div>
   </div>
 
-  <!-- Inline Script for Mark as Paid -->
+  <!-- Payment Modal Popup -->
+  <div id="paymentModal" class="modal-overlay">
+    <div class="bg-white p-6 rounded shadow-lg max-w-md w-full">
+      <h2 class="text-xl font-bold mb-4">Continue Order Payment</h2>
+      <p id="orderInfo" class="mb-4"></p>
+      <div class="mb-4">
+        <label class="inline-flex items-center mr-4">
+          <input type="radio" name="paymentMode" value="Cash" class="form-radio" checked>
+          <span class="ml-2">Cash</span>
+        </label>
+        <label class="inline-flex items-center">
+          <input type="radio" name="paymentMode" value="UPI" class="form-radio">
+          <span class="ml-2">UPI</span>
+        </label>
+      </div>
+      <div id="upiSection" class="mb-4 hidden">
+        <p class="mb-2">Scan QR Code to pay via UPI:</p>
+        <!-- The QR code is generated using the active UPI id and the order amount -->
+        <img id="upiQr" src="" alt="UPI QR Code" class="mx-auto mb-2">
+      </div>
+      <div class="flex justify-end">
+        <button onclick="cancelOrder()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded mr-2">Cancel Order</button>
+        <button onclick="completeOrder()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded">Complete Order</button>
+      </div>
+      <div class="mt-4 text-right">
+        <button onclick="closeModal()" class="text-gray-500 hover:underline">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inline Script for Payment Modal and Order Actions -->
   <script>
-    async function markAsPaid(orderId) {
-      if (confirm("Mark order " + orderId + " as Paid?")) {
-        try {
-          const res = await fetch('/orders/complete-payment', {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId })
-          });
-          const data = await res.json();
+    let currentOrderId = "";
+    let currentAmount = 0;
+
+    // Open the payment modal and set order details
+    function openPaymentModal(orderId, amount) {
+      currentOrderId = orderId;
+      currentAmount = amount;
+      document.getElementById('orderInfo').innerText = "Order ID: " + orderId + " | Amount: ₹" + amount.toFixed(2);
+      // Reset radio button to default (Cash) and hide UPI section
+      document.querySelector('input[name="paymentMode"][value="Cash"]').checked = true;
+      document.getElementById('upiSection').classList.add('hidden');
+      // Show the modal
+      document.getElementById('paymentModal').style.display = "flex";
+    }
+
+    // Close the modal
+    function closeModal() {
+      document.getElementById('paymentModal').style.display = "none";
+    }
+
+    // Listen for changes in payment mode to toggle UPI section visibility
+    document.querySelectorAll('input[name="paymentMode"]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        if (this.value === "UPI") {
+          // Construct a QR code URL using the active UPI id and order amount.
+          // The UPI details are passed using EJS.
+          const upiId = "<%= typeof activeUpi !== 'undefined' && activeUpi ? activeUpi.upiId : '' %>";
+          const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?data=upi://pay?pa=" + upiId + "&am=" + currentAmount.toFixed(2) + "&cu=INR&tn=Payment";
+          document.getElementById('upiQr').src = qrUrl;
+          document.getElementById('upiSection').classList.remove('hidden');
+        } else {
+          document.getElementById('upiSection').classList.add('hidden');
+        }
+      });
+    });
+
+    // Complete the order by updating payment status
+    function completeOrder() {
+      const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
+      // Build the data to send. If payment is by UPI, include the active UPI id.
+      const data = { 
+        orderId: currentOrderId,
+        paymentMode: paymentMode
+      };
+      if (paymentMode === "UPI") {
+        data.upiId = "<%= activeUpi ? activeUpi.upiId : '' %>";
+      }
+      fetch("/orders/complete-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert("Order " + currentOrderId + " marked as Paid.");
+          closeModal();
+          location.reload();
+        } else {
+          alert("Error: " + data.message);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Error completing order.");
+      });
+    }
+
+    // Cancel the order (delete from database)
+    function cancelOrder() {
+      if (confirm("Are you sure you want to cancel Order " + currentOrderId + "? This will remove the order from the database.")) {
+        fetch("/orders/delete/" + currentOrderId, {
+          method: "DELETE"
+        })
+        .then(response => response.json())
+        .then(data => {
           if (data.success) {
-            alert("Order " + orderId + " marked as Paid.");
+            alert("Order " + currentOrderId + " cancelled.");
+            closeModal();
             location.reload();
           } else {
             alert("Error: " + data.message);
           }
-        } catch (error) {
-          console.error(error);
-          alert("Error marking order as Paid.");
-        }
+        })
+        .catch(err => {
+          console.error(err);
+          alert("Error cancelling order.");
+        });
       }
+    }
+
+    // Provided function for fetching UPI (if needed for POS orders)
+    function makeOrder() {
+      if (Object.keys(orderItems).length === 0) {
+        alert("Please add at least one item to the order.");
+        return;
+      }
+      const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
+      // Generate a temporary orderId for the request
+      const orderId = generateOrderId();
+      const data = {
+        orderId: orderId,
+        paymentMode: paymentMode,
+        upiId: (paymentMode === 'UPI') ? "<%= activeUpi ? activeUpi.upiId : '' %>" : "",
+        orderItems: JSON.stringify(orderItems)
+      };
+      fetch("/orders/place-pos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(result => {
+        if(result.success) {
+          currentOrderId = result.orderId || orderId;
+          currentOrderNumber = result.orderNumber;
+          showNotification("Order Placed: " + currentOrderNumber);
+          if (paymentMode === "UPI") {
+            showUpiPopup();
+          } else {
+            orderItems = {};
+            updateOrderDetails();
+          }
+        } else {
+          alert("Error placing order: " + result.message);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Error placing order.");
+      });
     }
   </script>
 </body>

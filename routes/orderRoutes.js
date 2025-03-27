@@ -318,15 +318,18 @@ router.delete('/delete/:orderId', async (req, res) => {
   }
 });
 
-// NEW: Complete Payment Endpoint - update order status from "Pending" to "Paid"
 router.post('/complete-payment', async (req, res) => {
   try {
-    const { orderId } = req.body;
+    const { orderId, paymentMode, upiId } = req.body;
     const order = await Order.findOne({ orderId });
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
     order.status = "Paid";
+    order.paymentMode = paymentMode;
+    if (paymentMode === "UPI" && upiId) {
+      order.upiId = upiId;
+    }
     await order.save();
     res.json({ success: true, orderId });
   } catch (err) {
@@ -334,6 +337,7 @@ router.post('/complete-payment', async (req, res) => {
     res.status(500).json({ success: false, message: "Error completing payment: " + err.message });
   }
 });
+
 
 // GET: Success Page (display order details if orderId provided)
 router.get('/success', async (req, res) => {
@@ -352,16 +356,31 @@ router.get('/success', async (req, res) => {
   }
 });
 
+// GET: Fetch Active UPI Details
+router.get('/upi/active', async (req, res) => {
+  try {
+    const activeUpi = await Upi.findOne({ active: true });
+    if (!activeUpi) {
+      return res.json({ success: false, message: "No active UPI account." });
+    }
+    res.json({ success: true, activeUpi });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Error fetching UPI details" });
+  }
+});
 
-// NEW: Online Orders Page for Payment Reception
+
+// GET: Online Orders Page for Payment Reception
 router.get('/online', async (req, res) => {
   try {
-    // Fetch online orders only
     const orders = await Order.find({ orderSource: "online" })
       .sort({ createdAt: -1 })
       .populate('items.foodItem')
       .exec();
-    res.render('onlineOrders', { orders, user: req.session.user });
+    // Fetch the active UPI document
+    const activeUpi = await Upi.findOne({ active: true });
+    res.render('onlineOrders', { orders, user: req.session.user, activeUpi });
   } catch (err) {
     console.error(err);
     res.status(500).send("Error fetching online orders");
