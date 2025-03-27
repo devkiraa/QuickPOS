@@ -104,8 +104,7 @@ router.post('/place-pos', async (req, res) => {
   try {
     const { paymentMode, upiId, orderItems, orderSource } = req.body;
     let orderId;
-    // For POS orders, we generate a secure orderId differently:
-    // If the order comes from counter, prefix with '#' and generate a sequential order number.
+    // For POS orders, if the order comes from counter, prefix with '#' and generate a sequential order number.
     // Otherwise, for online POS orders, use a UUID.
     if (orderSource === "counter") {
       const orderNumber = await generateNextOrderNumber();
@@ -113,6 +112,7 @@ router.post('/place-pos', async (req, res) => {
     } else {
       orderId = uuidv4();
     }
+    
     // Parse order items (expected as JSON string)
     const parsedOrderItems = typeof orderItems === 'string' ? JSON.parse(orderItems) : orderItems;
     let totalAmount = 0;
@@ -125,8 +125,13 @@ router.post('/place-pos', async (req, res) => {
         quantity: item.quantity
       });
     }
-    // For POS orders, we assign an orderNumber regardless of the orderSource.
+    
+    // For POS orders, assign an orderNumber regardless of the orderSource.
     const orderNumber = await generateNextOrderNumber();
+    
+    // If orderSource is "counter" and no paymentMode is provided, default to "Cash"
+    const finalPaymentMode = (orderSource === "counter" && !paymentMode) ? "Cash" : paymentMode;
+    
     const newOrder = new Order({
       orderId,
       orderNumber,
@@ -134,19 +139,21 @@ router.post('/place-pos', async (req, res) => {
       mobile: "N/A",
       items: itemsArray,
       orderData: parsedOrderItems,
-      paymentMode,
-      upiId: paymentMode === "UPI" ? upiId : "",
+      paymentMode: finalPaymentMode,
+      upiId: finalPaymentMode === "UPI" ? upiId : "",
       totalAmount,
       status: "Pending",
       orderSource: orderSource || "counter"
     });
+    
     await newOrder.save();
-    res.json({ success: true, orderId });
+    res.json({ success: true, orderId, orderNumber });
   } catch (err) {
     console.error("Error in place-pos endpoint:", err);
     res.status(500).json({ success: false, message: "Error placing POS order: " + err.message });
   }
-});// POST: Place POS Order (from counter)
+});
+// POST: Place POS Order (from counter)
 router.post('/place-pos', async (req, res) => {
   try {
     const { paymentMode, upiId, orderItems, orderSource } = req.body;
