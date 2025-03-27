@@ -1,8 +1,11 @@
-//models/Order.js
 const mongoose = require('mongoose');
 
 const OrderSchema = new mongoose.Schema({
-  orderId: { type: String, unique: true, required: true },
+  // For online orders, orderId is a UUID.
+  // For POS orders, orderId is a string like "#12345"
+  orderId: { type: String, required: true },
+  // Sequential reference number for customer display (e.g. 12345)
+  orderNumber: { type: Number },
   customerName: { type: String, required: true },
   mobile: { type: String, required: true },
   items: [
@@ -11,12 +14,13 @@ const OrderSchema = new mongoose.Schema({
       quantity: { type: Number, default: 1 },
     },
   ],
-  // Additional fields for POS orders:
-  orderData: { type: mongoose.Schema.Types.Mixed }, // Stores POS order details and extra payments
+  // Stores additional POS order data (raw order data, extra payments, etc.)
+  orderData: { type: mongoose.Schema.Types.Mixed },
   paymentMode: { type: String }, // "Cash" or "UPI"
-  upiId: { type: String },       // if paymentMode is UPI, stores the UPI id used
-  totalAmount: { type: Number }, // NEW FIELD: total order amount
+  upiId: { type: String },
+  totalAmount: { type: Number },
   status: { type: String, default: 'Pending' },
+  orderSource: { type: String }, // "counter" for POS orders, "online" for online orders
   createdAt: { type: Date, default: Date.now },
 });
 
