@@ -21,15 +21,7 @@
   </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4">
-  <div id="successContainer" class="relative bg-white w-full max-w-sm rounded-lg shadow-lg px-6 py-8 text-center">
-    <!-- Optional Close Button -->
-    <button class="absolute top-4 left-4 text-gray-400 hover:text-gray-600 focus:outline-none" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
-           viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round"
-              d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
+  <div id="successContainer" class="relative bg-white w-full max-w-sm rounded-lg px-6 py-8 text-center">
 
     <!-- Check Icon -->
     <div class="flex items-center justify-center mb-4 mt-2">
@@ -60,20 +52,16 @@
     <% if (order) { %>
       <div class="bg-gray-50 rounded-lg px-4 py-4 mb-6">
         <div class="text-center mb-3">
-          <span class="block text-xs text-gray-500">Total Payment</span>
+          <span class="block text-xs text-gray-500">Order ID</span>
           <span class="text-2xl font-bold text-gray-800">
-            ₹<span id="totalAmount"><%= order.totalAmount.toFixed(2) %></span>
+            <span id="totalAmount">#<%= order.orderNumber %></span>
           </span>
         </div>
         <div class="border-b border-gray-200 mb-3"></div>
         <div class="grid grid-cols-1 gap-y-2 text-left text-sm text-gray-700">
           <div class="flex justify-between">
-            <span class="font-medium">Ref Number</span>
-            <span id="orderId">#<%= order.orderNumber %></span>
-          </div>
-          <div class="flex justify-between">
-            <span class="font-medium">Payment Time</span>
-            <span>--:--</span>
+            <span class="font-medium">Total Payment</span>
+            <span id="orderId">₹<%= order.totalAmount.toFixed(2) %></span>
           </div>
           <div class="flex justify-between">
             <span class="font-medium">Payment Method</span>
@@ -90,6 +78,42 @@
         </div>
       </div>
 
+      <!-- Ordered Items Summary -->
+      <div id="orderedItemsSummary" class="mb-6 text-left">
+        <h2 class="text-base font-semibold text-gray-700 mb-2">Ordered Items:</h2>
+        <ul class="list-disc list-inside text-sm text-gray-600">
+          <% order.items.forEach(function(item) { %>
+            <li>
+              <%= item.foodItem ? item.foodItem.name : "Item" %>: <%= item.quantity %>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+
+      <!-- Only show the Pay via UPI button if the order is not paid -->
+      <% if (activeUpi && order && order.status.toLowerCase() !== "paid") { %>
+        <button id="upiPaymentButton" class="inline-block w-full bg-green-600 text-white text-center py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+          Pay via UPI Apps
+        </button>
+        <p class="text-sm text-gray-700 mb-6">If the UPI app encounters issues, please complete your payment at the counter.</p>
+        <script>
+          document.getElementById('upiPaymentButton').addEventListener('click', function() {
+            // Construct UPI URL parameters using encodeURIComponent for safety
+            const upiId = "<%= activeUpi.upiId %>";
+            const payeeName = "Amrita Canteen";
+            const amount = "<%= order.totalAmount.toFixed(2) %>";
+            const upiUrl = "upi://pay?" +
+              "pa=" + encodeURIComponent(upiId) +
+              "&pn=" + encodeURIComponent(payeeName) +
+              "&am=" + encodeURIComponent(amount) +
+              "&cu=INR";
+            
+            // Redirect to the UPI URL so that the UPI app opens on the device
+            window.location.href = upiUrl;
+          });
+        </script>
+      <% } %>
+      
       <!-- Purchased Items (hidden by default, toggleable when status is "Paid") -->
       <div id="itemsSection" class="mb-6 text-left hidden">
         <h2 class="text-base font-semibold text-gray-700 mb-2">Purchased Items:</h2>
@@ -104,30 +128,16 @@
 
       <!-- Button to Toggle Purchased Items -->
       <button id="toggleItemsBtn" class="hidden w-full bg-gray-200 text-gray-700 py-2 rounded-lg mb-4 hover:bg-gray-300 transition" onclick="toggleItems()">Show Items</button>
-
-      <!-- PDF Receipt Link -->
-      <a href="/orders/receipt/<%= order.orderId %>" class="flex items-center justify-center text-gray-600 text-sm mb-6 hover:text-gray-800">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none"
-             viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-        </svg>
-        Get PDF Receipt
-      </a>
     <% } else { %>
       <p class="text-sm text-gray-700 mb-6">Your order has been placed successfully.</p>
     <% } %>
-
-    <!-- Done Button -->
-    <a href="/dashboard" class="inline-block w-full bg-green-600 text-white text-center py-3 rounded-lg font-semibold hover:bg-green-700 transition">
-      Done
-    </a>
   </div>
   
   <script>
     <% if (order) { %>
       const orderId = "<%= order.orderId %>";
 
-      // Poll every 5 seconds to check for payment update.
+      // Poll every 2 seconds to check for payment update.
       async function fetchOrderStatus() {
         try {
           const res = await fetch(`/orders/details/${encodeURIComponent(orderId)}`);

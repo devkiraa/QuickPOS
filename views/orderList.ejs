@@ -155,7 +155,7 @@
     </div>
   </div>
 
-  <!-- Inline Script -->
+  <!-- Inline Script for Order Functionality -->
   <script>
     // ========================
     // Global Variables for Pagination & Auto-Refresh
@@ -229,21 +229,28 @@
     }
 
     // ========================
-    // CSV Export (Excluding Actions Column)
+    // CSV Export (Excluding Actions Column) using full data from allOrders
     // ========================
     function exportTableToCSV(filename) {
       const csv = [];
-      const rows = document.querySelectorAll("table tr");
-      for (let i = 0; i < rows.length; i++) {
+      // Header row
+      const header = ['No', 'Ref Number', 'Customer', 'Mobile', 'Total', 'Status', 'Date & Time'];
+      csv.push(header.join(","));
+      
+      // Loop over allOrders (full data)
+      allOrders.forEach((order, index) => {
         const row = [];
-        const cols = rows[i].querySelectorAll("td, th");
-        // Exclude the last column (Actions)
-        for (let j = 0; j < cols.length - 1; j++) {
-          let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim();
-          row.push('"' + data.replace(/"/g, '""') + '"');
-        }
+        row.push(index + 1);
+        row.push(order.orderNumber);
+        row.push(order.customerName);
+        row.push(order.mobile);
+        // Remove the rupee symbol and use number value
+        row.push(order.totalAmount);
+        row.push(order.status);
+        row.push(new Date(order.createdAt).toLocaleString());
         csv.push(row.join(","));
-      }
+      });
+      
       const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
       const downloadLink = document.createElement("a");
       downloadLink.download = filename;

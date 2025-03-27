@@ -8,25 +8,16 @@ const Upi = require('../models/Upi');
 const { v4: uuidv4 } = require('uuid');
 
 /* ========================================================
-   Helper Functions for Sequential Order Numbers
+   Helper Function for Sequential Order Number
    ======================================================== */
 
-// Generate next sequential order number for online orders.
-async function generateNextOnlineOrderNumber() {
-  const lastOnline = await Order.findOne({ orderSource: "online" }).sort({ orderNumber: -1 });
-  if (lastOnline && lastOnline.orderNumber) {
-    return lastOnline.orderNumber + 1;
+// Generate the next sequential order number (global for both online and POS orders)
+async function generateNextOrderNumber() {
+  const lastOrder = await Order.findOne({}).sort({ orderNumber: -1 });
+  if (lastOrder && lastOrder.orderNumber) {
+    return lastOrder.orderNumber + 1;
   }
-  return 100000; // starting number for online orders
-}
-
-// Generate next sequential order number for counter (POS) orders.
-async function generateNextCounterOrderNumber() {
-  const lastCounter = await Order.findOne({ orderSource: "counter" }).sort({ orderNumber: -1 });
-  if (lastCounter && lastCounter.orderNumber) {
-    return lastCounter.orderNumber + 1;
-  }
-  return 12345; // starting number for counter orders
+  return 12345; // starting number for orders
 }
 
 /* ========================================================
@@ -42,9 +33,9 @@ router.get('/new', (req, res) => {
 router.post('/new', async (req, res) => {
   try {
     const { customerName, mobile } = req.body;
-    // For online orders, orderId is a UUID and we also generate a sequential orderNumber.
+    // For online orders, orderId is a UUID.
     const orderId = uuidv4();
-    const orderNumber = await generateNextOnlineOrderNumber();
+    const orderNumber = await generateNextOrderNumber();
     const newOrder = new Order({
       orderId,
       orderNumber,
@@ -112,9 +103,12 @@ router.post('/place/:orderId', async (req, res) => {
 router.post('/place-pos', async (req, res) => {
   try {
     const { paymentMode, upiId, orderItems, orderSource } = req.body;
-    let orderId, orderNumber;
+    let orderId;
+    // For POS orders, we generate a secure orderId differently:
+    // If the order comes from counter, prefix with '#' and generate a sequential order number.
+    // Otherwise, for online POS orders, use a UUID.
     if (orderSource === "counter") {
-      orderNumber = await generateNextCounterOrderNumber();
+      const orderNumber = await generateNextOrderNumber();
       orderId = "#" + orderNumber;
     } else {
       orderId = uuidv4();
@@ -131,9 +125,11 @@ router.post('/place-pos', async (req, res) => {
         quantity: item.quantity
       });
     }
+    // For POS orders, we assign an orderNumber regardless of the orderSource.
+    const orderNumber = await generateNextOrderNumber();
     const newOrder = new Order({
       orderId,
-      orderNumber, // will be undefined for non-counter orders.
+      orderNumber,
       customerName: "POS Customer",
       mobile: "N/A",
       items: itemsArray,
@@ -150,6 +146,54 @@ router.post('/place-pos', async (req, res) => {
     console.error("Error in place-pos endpoint:", err);
     res.status(500).json({ success: false, message: "Error placing POS order: " + err.message });
   }
+});// POST: Place POS Order (from counter)
+router.post('/place-pos', async (req, res) => {
+  try {
+    const { paymentMode, upiId, orderItems, orderSource } = req.body;
+    let orderId;
+    // For POS orders, we generate a secure orderId differently:
+    // If the order comes from counter, prefix with '#' and generate a sequential order number.
+    // Otherwise, for online POS orders, use a UUID.
+    if (orderSource === "counter") {
+      const orderNumber = await generateNextOrderNumber();
+      orderId = "#" + orderNumber;
+    } else {
+      orderId = uuidv4();
+    }
+    // Parse order items (expected as JSON string)
+    const parsedOrderItems = typeof orderItems === 'string' ? JSON.parse(orderItems) : orderItems;
+    let totalAmount = 0;
+    const itemsArray = [];
+    for (const key in parsedOrderItems) {
+      const item = parsedOrderItems[key];
+      totalAmount += item.price * item.quantity;
+      itemsArray.push({
+        foodItem: new mongoose.Types.ObjectId(item.id),
+        quantity: item.quantity
+      });
+    }
+    // For POS orders, we assign an orderNumber regardless of the orderSource.
+    const orderNumber = await generateNextOrderNumber();
+    const newOrder = new Order({
+      orderId,
+      orderNumber,
+      customerName: "POS Customer",
+      mobile: "N/A",
+      items: itemsArray,
+      orderData: parsedOrderItems,
+      paymentMode,
+      upiId: paymentMode === "UPI" ? upiId : "",
+      totalAmount,
+      status: "Pending",
+      orderSource: orderSource || "counter"
+    });
+    await newOrder.save();
+    // Return both orderId and orderNumber in the response
+    res.json({ success: true, orderId, orderNumber });
+  } catch (err) {
+    console.error("Error in place-pos endpoint:", err);
+    res.status(500).json({ success: false, message: "Error placing POS order: " + err.message });
+  }
 });
 
 /* ========================================================
@@ -157,12 +201,16 @@ router.post('/place-pos', async (req, res) => {
    ======================================================== */
 
 // GET: Order List (latest orders first)
-// (For security, the page can show orderNumber for reference and orderId for internal viewing.)
+// (For security, the page shows orderNumber for reference and orderId for internal viewing.)
 router.get('/list', async (req, res) => {
   try {
     const orders = await Order.find({}).sort({ createdAt: -1 });
     const activeUpi = await Upi.findOne({ active: true });
     const allFoodItems = await FoodItem.find({});
+    // If this is an AJAX request (for auto-refresh/pagination), return JSON.
+    if (req.query.ajax) {
+      return res.json({ orders });
+    }
     res.render('orderList', { orders, user: req.session.user, activeUpi, allFoodItems });
   } catch (err) {
     console.error(err);
@@ -254,16 +302,19 @@ router.post('/modify/:orderId', async (req, res) => {
     res.status(500).json({ success: false, message: "Error modifying order: " + err.message });
   }
 });
-  
+
 // DELETE: Delete an Order
 router.delete('/delete/:orderId', async (req, res) => {
   try {
     const orderId = req.params.orderId;
-    await Order.deleteOne({ orderId });
-    res.json({ success: true });
+    const result = await Order.deleteOne({ orderId });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    res.json({ success: true, orderId });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Error deleting order" });
+    console.error("Error in delete endpoint:", err);
+    res.status(500).json({ success: false, message: "Error deleting order: " + err.message });
   }
 });
 
@@ -292,12 +343,15 @@ router.get('/success', async (req, res) => {
     if (orderId) {
       order = await Order.findOne({ orderId }).populate('items.foodItem').exec();
     }
-    res.render('success', { order });
+    // Fetch the active UPI document
+    const activeUpi = await Upi.findOne({ active: true });
+    res.render('success', { order, activeUpi });
   } catch (err) {
     console.error(err);
-    res.render('success', { order: null });
+    res.render('success', { order: null, activeUpi: null });
   }
 });
+
 
 // NEW: Online Orders Page for Payment Reception
 router.get('/online', async (req, res) => {
