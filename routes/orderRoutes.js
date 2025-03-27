@@ -67,12 +67,20 @@ router.post('/new', async (req, res) => {
 router.get('/menu/:orderId', async (req, res) => {
   try {
     const foodItems = await FoodItem.find({});
-    res.render('menu', { orderId: req.params.orderId, foodItems });
+    // Get all unique section names from your FoodItem documents
+    const sections = await FoodItem.distinct('section');
+
+    res.render('menu', {
+      orderId: req.params.orderId,
+      foodItems,
+      sections  // pass sections here
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send("Error loading menu");
   }
 });
+
 
 // POST: Place Online Order from menu form submission
 router.post('/place/:orderId', async (req, res) => {
