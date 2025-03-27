@@ -90,15 +90,16 @@
         </ul>
       </div>
 
-      <!-- Only show the Pay via UPI button if the order is not paid -->
+      <!-- UPI Payment Section: Only show if order status is not paid -->
       <% if (activeUpi && order && order.status.toLowerCase() !== "paid") { %>
         <button id="upiPaymentButton" class="inline-block w-full bg-green-600 text-white text-center py-3 rounded-lg font-semibold hover:bg-green-700 transition">
           Pay via UPI Apps
         </button>
-        <p class="text-sm text-gray-700 mb-6">If the UPI app encounters issues, please complete your payment at the counter.</p>
+        <p id="upiHelpText" class="text-sm text-gray-700 mb-6">
+          If the UPI app encounters issues, please complete your payment at the counter.
+        </p>
         <script>
           document.getElementById('upiPaymentButton').addEventListener('click', function() {
-            // Construct UPI URL parameters using encodeURIComponent for safety
             const upiId = "<%= activeUpi.upiId %>";
             const payeeName = "Amrita Canteen";
             const amount = "<%= order.totalAmount.toFixed(2) %>";
@@ -107,27 +108,10 @@
               "&pn=" + encodeURIComponent(payeeName) +
               "&am=" + encodeURIComponent(amount) +
               "&cu=INR";
-            
-            // Redirect to the UPI URL so that the UPI app opens on the device
             window.location.href = upiUrl;
           });
         </script>
       <% } %>
-      
-      <!-- Purchased Items (hidden by default, toggleable when status is "Paid") -->
-      <div id="itemsSection" class="mb-6 text-left hidden">
-        <h2 class="text-base font-semibold text-gray-700 mb-2">Purchased Items:</h2>
-        <ul id="itemsList" class="list-disc list-inside text-sm text-gray-600">
-          <% order.items.forEach(function(item) { %>
-            <li>
-              <%= item.foodItem ? item.foodItem.name : "Item" %> &mdash; Quantity: <%= item.quantity %>
-            </li>
-          <% }) %>
-        </ul>
-      </div>
-
-      <!-- Button to Toggle Purchased Items -->
-      <button id="toggleItemsBtn" class="hidden w-full bg-gray-200 text-gray-700 py-2 rounded-lg mb-4 hover:bg-gray-300 transition" onclick="toggleItems()">Show Items</button>
     <% } else { %>
       <p class="text-sm text-gray-700 mb-6">Your order has been placed successfully.</p>
     <% } %>
@@ -144,9 +128,18 @@
           const data = await res.json();
           if (data.success && data.order) {
             document.getElementById("orderStatus").innerText = data.order.status;
-            // If status is 'Paid', update header and show toggle button.
             if (data.order.status.toLowerCase() === "paid") {
               document.getElementById("headerMsg").innerText = "Payment Successful!";
+              // Hide the UPI Payment button and help text if they exist.
+              const upiButton = document.getElementById("upiPaymentButton");
+              if (upiButton) {
+                upiButton.style.display = "none";
+              }
+              const upiHelpText = document.getElementById("upiHelpText");
+              if (upiHelpText) {
+                upiHelpText.style.display = "none";
+              }
+              // Show the toggle items button.
               document.getElementById("toggleItemsBtn").classList.remove("hidden");
             }
           }
