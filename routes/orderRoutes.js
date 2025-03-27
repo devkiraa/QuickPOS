@@ -1,3 +1,4 @@
+// routes/orderRoutes.js
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose'); // <-- Added
@@ -5,6 +6,10 @@ const Order = require('../models/Order');
 const FoodItem = require('../models/FoodItem');
 const Upi = require('../models/Upi');
 const { v4: uuidv4 } = require('uuid');
+
+/* ========================================================
+   Online Orders (via Order Form and Menu)
+   ======================================================== */
 
 // GET: Render order form to collect customer details
 router.get('/new', (req, res) => {
@@ -20,7 +25,7 @@ router.post('/new', async (req, res) => {
       orderId,
       customerName,
       mobile,
-      items: [], // For POS orders, items will be filled during placement
+      items: [], // For online orders, items will be filled during menu selection
       totalAmount: 0,
       status: "Pending"
     });
@@ -47,35 +52,70 @@ router.get('/menu/:orderId', async (req, res) => {
 router.post('/place/:orderId', async (req, res) => {
   try {
     const orderId = req.params.orderId;
-    // req.body.items is expected to be a JSON string (sent from the hidden input)
+    // req.body.items is expected to be a JSON string (from a hidden input)
     const itemsData = JSON.parse(req.body.items); // itemsData should be an array of items
-
-    // Convert itemsData into the format for the "items" array and calculate totalAmount.
     const itemsArray = [];
     let totalAmount = 0;
     for (const item of itemsData) {
       totalAmount += item.price * item.quantity;
       itemsArray.push({
-        foodItem: item.id, // assuming item.id is the FoodItem _id (as a string)
+        foodItem: item.id, // assuming item.id is the FoodItem _id as a string
         quantity: item.quantity
       });
     }
-    
-    // Find the order by orderId
     const order = await Order.findOne({ orderId });
     if (!order) {
       return res.status(404).send("Order not found");
     }
-    
-    // Update order's items and total amount
     order.items = itemsArray;
     order.totalAmount = totalAmount;
     await order.save();
-
     res.redirect('/orders/success?orderId=' + orderId);
   } catch (err) {
     console.error("Error placing order:", err);
     res.status(500).send("Error placing order");
+  }
+});
+
+/* ========================================================
+   POS Orders (handled via AJAX)
+   ======================================================== */
+
+// POST: Place POS Order
+router.post('/place-pos', async (req, res) => {
+  try {
+    const { orderId, paymentMode, upiId, orderItems, orderSource } = req.body;
+    // Parse the order items (expected as JSON string)
+    const parsedOrderItems = typeof orderItems === 'string' ? JSON.parse(orderItems) : orderItems;
+    let totalAmount = 0;
+    // Convert parsed order items into the format for the "items" array.
+    const itemsArray = [];
+    for (const key in parsedOrderItems) {
+      const item = parsedOrderItems[key];
+      totalAmount += item.price * item.quantity;
+      // Use "new" to convert the id string to an ObjectId
+      itemsArray.push({
+        foodItem: new mongoose.Types.ObjectId(item.id),
+        quantity: item.quantity
+      });
+    }
+    const newOrder = new Order({
+      orderId,
+      customerName: "POS Customer",
+      mobile: "N/A",
+      items: itemsArray, // storing items in the "items" array
+      orderData: parsedOrderItems, // also store raw POS order data if needed
+      paymentMode,
+      upiId: paymentMode === "UPI" ? upiId : "",
+      totalAmount,
+      status: "Pending",
+      orderSource: orderSource || "counter"  // e.g. "counter" or "online"
+    });
+    await newOrder.save();
+    res.json({ success: true, orderId });
+  } catch (err) {
+    console.error("Error in place-pos endpoint:", err);
+    res.status(500).json({ success: false, message: "Error placing POS order: " + err.message });
   }
 });
 
@@ -168,7 +208,7 @@ router.post('/modify/:orderId', async (req, res) => {
     }
     console.log("Additional items total:", additionalTotal);
     
-    // New total = original total + additionalTotal + extra
+    // New total = original total + additional items total + extra payment.
     order.totalAmount = originalTotal + additionalTotal + extra;
     console.log("New total calculated:", order.totalAmount);
     
@@ -199,53 +239,13 @@ router.delete('/delete/:orderId', async (req, res) => {
   }
 });
 
-// Existing POS Order Placement endpoint...
-router.post('/place-pos', async (req, res) => {
-  try {
-    const { orderId, paymentMode, upiId, orderItems, orderSource } = req.body;
-    // Parse the order items (expected as JSON string)
-    const parsedOrderItems = JSON.parse(orderItems);
-    let totalAmount = 0;
-    // Convert parsed order items into the format for the "items" array.
-    const itemsArray = [];
-    for (const key in parsedOrderItems) {
-      const item = parsedOrderItems[key];
-      // Add to totalAmount.
-      totalAmount += item.price * item.quantity;
-      // Push an object for the items array.
-      itemsArray.push({
-        foodItem: mongoose.Types.ObjectId(item.id), // Convert to ObjectId
-        quantity: item.quantity
-      });
-    }
-    const newOrder = new Order({
-      orderId,
-      customerName: "POS Customer",
-      mobile: "N/A",
-      items: itemsArray, // now storing in the "items" array
-      // Optionally, also store the raw POS order data:
-      orderData: parsedOrderItems,
-      paymentMode,
-      upiId: paymentMode === "UPI" ? upiId : "",
-      totalAmount,
-      status: "Pending",
-      orderSource: orderSource || "counter"  // e.g. "counter" or "online"
-    });
-    await newOrder.save();
-    res.json({ success: true, orderId });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Error placing POS order" });
-  }
-});
-
 // Existing success endpoint - updated to fetch and display order details if orderId is provided
 router.get('/success', async (req, res) => {
   try {
     const orderId = req.query.orderId;
     let order = null;
     if (orderId) {
-      // Populate items.foodItem so we can display the item name
+      // Populate items.foodItem so we can display the item name in success page.
       order = await Order.findOne({ orderId }).populate('items.foodItem').exec();
     }
     res.render('success', { order });
@@ -254,6 +254,5 @@ router.get('/success', async (req, res) => {
     res.render('success', { order: null });
   }
 });
-
 
 module.exports = router;
