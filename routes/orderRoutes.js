@@ -112,7 +112,6 @@ router.post('/place-pos', async (req, res) => {
     } else {
       orderId = uuidv4();
     }
-    
     // Parse order items (expected as JSON string)
     const parsedOrderItems = typeof orderItems === 'string' ? JSON.parse(orderItems) : orderItems;
     let totalAmount = 0;
@@ -125,13 +124,25 @@ router.post('/place-pos', async (req, res) => {
         quantity: item.quantity
       });
     }
-    
-    // For POS orders, assign an orderNumber regardless of the orderSource.
+    // For POS orders, we assign an orderNumber regardless of the orderSource.
     const orderNumber = await generateNextOrderNumber();
-    
-    // If orderSource is "counter" and no paymentMode is provided, default to "Cash"
-    const finalPaymentMode = (orderSource === "counter" && !paymentMode) ? "Cash" : paymentMode;
-    
+
+    // Determine the final payment mode.
+    // For counter orders, if no paymentMode is provided, default to "Cash".
+    let finalPaymentMode = (orderSource === "counter" && !paymentMode) ? "Cash" : paymentMode;
+
+    // If UPI is selected and no UPI ID is provided in the request,
+    // try to fetch the active UPI document from the database.
+    let finalUpiId = upiId;
+    if (finalPaymentMode === "UPI" && !upiId) {
+      const activeUpiDoc = await Upi.findOne({ active: true });
+      if (activeUpiDoc && activeUpiDoc.upiId) {
+        finalUpiId = activeUpiDoc.upiId;
+      } else {
+        return res.status(400).json({ success: false, message: "Active UPI account not set." });
+      }
+    }
+
     const newOrder = new Order({
       orderId,
       orderNumber,
@@ -140,19 +151,20 @@ router.post('/place-pos', async (req, res) => {
       items: itemsArray,
       orderData: parsedOrderItems,
       paymentMode: finalPaymentMode,
-      upiId: finalPaymentMode === "UPI" ? upiId : "",
+      upiId: finalPaymentMode === "UPI" ? finalUpiId : "",
       totalAmount,
       status: "Pending",
       orderSource: orderSource || "counter"
     });
-    
     await newOrder.save();
+    // Return both orderId and orderNumber in the response
     res.json({ success: true, orderId, orderNumber });
   } catch (err) {
     console.error("Error in place-pos endpoint:", err);
     res.status(500).json({ success: false, message: "Error placing POS order: " + err.message });
   }
 });
+
 // POST: Place POS Order (from counter)
 router.post('/place-pos', async (req, res) => {
   try {
