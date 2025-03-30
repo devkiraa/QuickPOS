@@ -9,6 +9,7 @@ const session = require('express-session');
 
 const orderRoutes = require('./routes/orderRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const upiTransactionRoutes = require('./routes/upiTransactionRoutes');
 
 const app = express(); // Initialize the app before using it
 
@@ -38,7 +39,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Routes
 app.use('/orders', orderRoutes);
 app.use('/dashboard', dashboardRoutes);
-
+app.use('/upi-transactions', upiTransactionRoutes);
 // Home page (for demo, you can change it)
 app.get('/', (req, res) => {
   res.redirect('/orders/new');

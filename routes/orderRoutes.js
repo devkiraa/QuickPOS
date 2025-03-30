@@ -2,16 +2,16 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const QRCode = require('qrcode');
 const Order = require('../models/Order');
 const FoodItem = require('../models/FoodItem');
 const Upi = require('../models/Upi');
+const UpiTransaction = require('../models/UpiTransaction'); // new model for UPI transactions
 const { v4: uuidv4 } = require('uuid');
 
 /* ========================================================
    Helper Function for Sequential Order Number
    ======================================================== */
-
-// Generate the next sequential order number (global for both online and POS orders)
 async function generateNextOrderNumber() {
   const lastOrder = await Order.findOne({}).sort({ orderNumber: -1 });
   if (lastOrder && lastOrder.orderNumber) {
@@ -23,7 +23,6 @@ async function generateNextOrderNumber() {
 /* ========================================================
    Online Orders (via Order Form and Menu)
    ======================================================== */
-
 // GET: Render order form to collect customer details (Online)
 router.get('/new', (req, res) => {
   res.render('orderForm');
@@ -71,13 +70,18 @@ router.post('/place/:orderId', async (req, res) => {
   try {
     const orderId = req.params.orderId;
     // Expect req.body.items to be a JSON string representing an array of items.
-    const itemsData = JSON.parse(req.body.items);
+    let itemsData;
+    try {
+      itemsData = JSON.parse(req.body.items);
+    } catch (e) {
+      return res.status(400).send("Invalid JSON for items");
+    }
     const itemsArray = [];
     let totalAmount = 0;
     for (const item of itemsData) {
       totalAmount += item.price * item.quantity;
       itemsArray.push({
-        foodItem: item.id, // item.id is the FoodItem _id (as string)
+        foodItem: item.id,
         quantity: item.quantity
       });
     }
@@ -98,7 +102,6 @@ router.post('/place/:orderId', async (req, res) => {
 /* ========================================================
    POS Orders (handled via AJAX)
    ======================================================== */
-
 // POST: Place POS Order (from counter)
 router.post('/place-pos', async (req, res) => {
   try {
@@ -113,7 +116,12 @@ router.post('/place-pos', async (req, res) => {
       orderId = uuidv4();
     }
     // Parse order items (expected as JSON string)
-    const parsedOrderItems = typeof orderItems === 'string' ? JSON.parse(orderItems) : orderItems;
+    let parsedOrderItems;
+    try {
+      parsedOrderItems = typeof orderItems === 'string' ? JSON.parse(orderItems) : orderItems;
+    } catch (e) {
+      return res.status(400).json({ success: false, message: "Invalid JSON for order items" });
+    }
     let totalAmount = 0;
     const itemsArray = [];
     for (const key in parsedOrderItems) {
@@ -128,11 +136,7 @@ router.post('/place-pos', async (req, res) => {
     const orderNumber = await generateNextOrderNumber();
 
     // Determine the final payment mode.
-    // For counter orders, if no paymentMode is provided, default to "Cash".
     let finalPaymentMode = (orderSource === "counter" && !paymentMode) ? "Cash" : paymentMode;
-
-    // If UPI is selected and no UPI ID is provided in the request,
-    // try to fetch the active UPI document from the database.
     let finalUpiId = upiId;
     if (finalPaymentMode === "UPI" && !upiId) {
       const activeUpiDoc = await Upi.findOne({ active: true });
@@ -157,57 +161,26 @@ router.post('/place-pos', async (req, res) => {
       orderSource: orderSource || "counter"
     });
     await newOrder.save();
-    // Return both orderId and orderNumber in the response
-    res.json({ success: true, orderId, orderNumber });
-  } catch (err) {
-    console.error("Error in place-pos endpoint:", err);
-    res.status(500).json({ success: false, message: "Error placing POS order: " + err.message });
-  }
-});
 
-// POST: Place POS Order (from counter)
-router.post('/place-pos', async (req, res) => {
-  try {
-    const { paymentMode, upiId, orderItems, orderSource } = req.body;
-    let orderId;
-    // For POS orders, we generate a secure orderId differently:
-    // If the order comes from counter, prefix with '#' and generate a sequential order number.
-    // Otherwise, for online POS orders, use a UUID.
-    if (orderSource === "counter") {
-      const orderNumber = await generateNextOrderNumber();
-      orderId = "#" + orderNumber;
-    } else {
-      orderId = uuidv4();
-    }
-    // Parse order items (expected as JSON string)
-    const parsedOrderItems = typeof orderItems === 'string' ? JSON.parse(orderItems) : orderItems;
-    let totalAmount = 0;
-    const itemsArray = [];
-    for (const key in parsedOrderItems) {
-      const item = parsedOrderItems[key];
-      totalAmount += item.price * item.quantity;
-      itemsArray.push({
-        foodItem: new mongoose.Types.ObjectId(item.id),
-        quantity: item.quantity
+    // If the payment mode is UPI, generate a UPI QR code and save a transaction record.
+    if (finalPaymentMode === "UPI") {
+      const payeeName = "Amrita Canteen";
+      const amountStr = totalAmount.toFixed(2);
+      const upiUri = `upi://pay?pa=${encodeURIComponent(finalUpiId)}&pn=${encodeURIComponent(payeeName)}&am=${encodeURIComponent(amountStr)}&cu=INR`;
+      const qrCodeData = await QRCode.toDataURL(upiUri, {
+        width: 300,
+        errorCorrectionLevel: 'H'
       });
+
+      const newTransaction = new UpiTransaction({
+        orderId,
+        upiId: finalUpiId,
+        qrCode: upiUri,  // Save the UPI URI (text) used to generate the QR code.
+        status: "Pending"
+      });
+      await newTransaction.save();
     }
-    // For POS orders, we assign an orderNumber regardless of the orderSource.
-    const orderNumber = await generateNextOrderNumber();
-    const newOrder = new Order({
-      orderId,
-      orderNumber,
-      customerName: "POS Customer",
-      mobile: "N/A",
-      items: itemsArray,
-      orderData: parsedOrderItems,
-      paymentMode,
-      upiId: paymentMode === "UPI" ? upiId : "",
-      totalAmount,
-      status: "Pending",
-      orderSource: orderSource || "counter"
-    });
-    await newOrder.save();
-    // Return both orderId and orderNumber in the response
+
     res.json({ success: true, orderId, orderNumber });
   } catch (err) {
     console.error("Error in place-pos endpoint:", err);
@@ -218,15 +191,12 @@ router.post('/place-pos', async (req, res) => {
 /* ========================================================
    Common Endpoints
    ======================================================== */
-
 // GET: Order List (latest orders first)
-// (For security, the page shows orderNumber for reference and orderId for internal viewing.)
 router.get('/list', async (req, res) => {
   try {
     const orders = await Order.find({}).sort({ createdAt: -1 });
     const activeUpi = await Upi.findOne({ active: true });
     const allFoodItems = await FoodItem.find({});
-    // If this is an AJAX request (for auto-refresh/pagination), return JSON.
     if (req.query.ajax) {
       return res.json({ orders });
     }
@@ -337,6 +307,7 @@ router.delete('/delete/:orderId', async (req, res) => {
   }
 });
 
+// POST: Complete Payment - update order status to "Paid" and update UPI transactions if any.
 router.post('/complete-payment', async (req, res) => {
   try {
     const { orderId, paymentMode, upiId } = req.body;
@@ -350,13 +321,18 @@ router.post('/complete-payment', async (req, res) => {
       order.upiId = upiId;
     }
     await order.save();
+
+    // Update UPI transactions for this order to "Paid"
+    if (paymentMode === "UPI") {
+      await UpiTransaction.updateMany({ orderId }, { $set: { status: "Paid" } });
+    }
+
     res.json({ success: true, orderId });
   } catch (err) {
     console.error("Error in complete-payment endpoint:", err);
     res.status(500).json({ success: false, message: "Error completing payment: " + err.message });
   }
 });
-
 
 // GET: Success Page (display order details if orderId provided)
 router.get('/success', async (req, res) => {
@@ -366,7 +342,6 @@ router.get('/success', async (req, res) => {
     if (orderId) {
       order = await Order.findOne({ orderId }).populate('items.foodItem').exec();
     }
-    // Fetch the active UPI document
     const activeUpi = await Upi.findOne({ active: true });
     res.render('success', { order, activeUpi });
   } catch (err) {
@@ -389,7 +364,6 @@ router.get('/upi/active', async (req, res) => {
   }
 });
 
-
 // GET: Online Orders Page for Payment Reception
 router.get('/online', async (req, res) => {
   try {
@@ -397,7 +371,6 @@ router.get('/online', async (req, res) => {
       .sort({ createdAt: -1 })
       .populate('items.foodItem')
       .exec();
-    // Fetch the active UPI document
     const activeUpi = await Upi.findOne({ active: true });
     res.render('onlineOrders', { orders, user: req.session.user, activeUpi });
   } catch (err) {
