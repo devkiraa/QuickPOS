@@ -144,6 +144,7 @@ app.get('/api/status', async (req, res) => {
   }
 });
 
+app.get('/api/mode', (req,res) => {res.status(200).json({mode: serverStatus});});
 // Helper function to format uptime as HH:MM:SS
 function formatUptime(uptimeMs) {
   const totalSeconds = Math.floor(uptimeMs / 1000);
