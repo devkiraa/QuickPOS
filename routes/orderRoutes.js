@@ -136,6 +136,7 @@ router.post('/place-pos', async (req, res) => {
     const orderNumber = await generateNextOrderNumber();
 
     // Determine the final payment mode.
+    // For counter orders, if no paymentMode is provided, default to "Cash".
     let finalPaymentMode = (orderSource === "counter" && !paymentMode) ? "Cash" : paymentMode;
     let finalUpiId = upiId;
     if (finalPaymentMode === "UPI" && !upiId) {
@@ -166,29 +167,35 @@ router.post('/place-pos', async (req, res) => {
     if (finalPaymentMode === "UPI") {
       const payeeName = "Amrita Canteen";
       const amountStr = totalAmount.toFixed(2);
-      const upiUri = `upi://pay?pa=${encodeURIComponent(finalUpiId)}&pn=${encodeURIComponent(payeeName)}&am=${encodeURIComponent(amountStr)}&cu=INR`;
+      // Create a transaction note string
+      const transactionNote = "Payment for Order #" + orderNumber;
+      const tnParam = encodeURIComponent(transactionNote);
+      const upiUri = `upi://pay?pa=${encodeURIComponent(finalUpiId)}&pn=${encodeURIComponent(payeeName)}&am=${encodeURIComponent(amountStr)}&tn=${tnParam}&cu=INR`;
       const qrCodeData = await QRCode.toDataURL(upiUri, {
         width: 300,
         errorCorrectionLevel: 'H'
       });
 
-      // Note: We now also include the orderNumber in the UPI transaction.
+      // Create a new UPI transaction record, including the transaction note.
       const newTransaction = new UpiTransaction({
         orderId,
-        orderNumber, // Added field
+        orderNumber, // added field
         upiId: finalUpiId,
-        qrCode: upiUri,  // Save the UPI URI (text) used to generate the QR code.
+        qrCode: upiUri,  // saving the UPI URI (text) used to generate the QR code.
+        tn: transactionNote,  // new field for transaction note (make sure your model supports this)
         status: "Pending"
       });
       await newTransaction.save();
     }
 
+    // Return both orderId and orderNumber in the response
     res.json({ success: true, orderId, orderNumber });
   } catch (err) {
     console.error("Error in place-pos endpoint:", err);
     res.status(500).json({ success: false, message: "Error placing POS order: " + err.message });
   }
 });
+
 
 /* ========================================================
    Common Endpoints

@@ -13,28 +13,41 @@ const orderRoutes = require('./routes/orderRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const upiTransactionRoutes = require('./routes/upiTransactionRoutes');
 
-const app = express(); // Initialize the app before using it
+const app = express();
 
 // Track server start time
 const SERVER_START_TIME = Date.now();
-let serverStatus = 'online';
+let serverStatus = 'normal'; // "normal" means all pages accessible, "restricted" limits pages
 
-// Middleware to check server status and redirect if offline
-function checkServerStatus(req, res, next) {
-  // Exclude API routes from the offline check
-  if (req.url.startsWith('/api/')) {
-    return next(); // Skip the check for API routes
+// List of allowed URL patterns when restricted mode is on.
+// Allowed pages: orderForm.ejs, menu.ejs, success.ejs, and any dynamic orders/place URL.
+const allowedPathsRestricted = [
+  '/orders/new',
+  '/orders/menu',      // allows any URL starting with /orders/menu
+  '/orders/success',
+  '/orders/place'      // allows any dynamic URL starting with /orders/place
+];
+
+// Middleware to check server status and restrict access if necessary.
+function restrictAccess(req, res, next) {
+  // Always allow API endpoints
+  if (req.originalUrl.startsWith('/api/')) return next();
+
+  // Only apply this check if serverStatus (after trimming) is "restricted"
+  if (serverStatus.trim() === 'restricted') {
+    // Check if the requested URL starts with one of the allowed paths.
+    const isAllowed = allowedPathsRestricted.some(pathPrefix =>
+      req.originalUrl.startsWith(pathPrefix)
+    );
+    if (!isAllowed) {
+      // Render a "Not Allowed" page.
+      return res.render('notAllowed'); // Ensure you have created a notAllowed.ejs view.
+    }
   }
-
-  // Redirect to offline.ejs if serverStatus is "offline"
-  if (serverStatus === 'offline') {
-    return res.render('offline'); // Render the offline page
-  }
-
-  next(); // Proceed to the next middleware or route handler
+  next();
 }
 
-// Session middleware
+// Use session middleware
 app.use(session({
   secret: process.env.SECRET_KEY || 'yourSecretKeyHere',
   resave: false,
@@ -57,24 +70,28 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Apply the server status middleware
-app.use(checkServerStatus);
+// Apply the restricted access middleware (apply before routes)
+app.use(restrictAccess);
 
 // Routes
 app.use('/orders', orderRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/upi-transactions', upiTransactionRoutes);
+
 // Home page (for demo, you can change it)
 app.get('/', (req, res) => {
   res.redirect('/orders/new');
 });
 
+// API endpoint to update server status (e.g., normal, restricted)
 app.post('/api/update-server-status', (req, res) => {
-  serverStatus = req.body.status;
-  console.log('Server loaded with mode: ',serverStatus);
-  res.sendStatus(200); // Use sendStatus instead of send
+  // Trim status to remove extra whitespace if any.
+  serverStatus = req.body.status.trim();
+  console.log('Server status updated to: ', serverStatus);
+  res.sendStatus(200);
 });
 
+// API endpoint to fetch server status and metrics
 app.get('/api/status', async (req, res) => {
   try {
     // Calculate uptime
@@ -88,29 +105,28 @@ app.get('/api/status', async (req, res) => {
     const cpuData = await si.currentLoad();
 
     // Get memory usage
-    const totalMemory = os.totalmem(); // Total memory in bytes
-    const freeMemory = os.freemem(); // Free memory in bytes
-    const usedMemory = totalMemory - freeMemory; // Used memory in bytes
+    const totalMemory = os.totalmem();
+    const freeMemory = os.freemem();
+    const usedMemory = totalMemory - freeMemory;
 
     // Prepare response data
     const data = {
       system_metrics: {
-        cpu_usage_percent: cpuData.currentLoad.toFixed(2), // Total CPU usage percentage
+        cpu_usage_percent: cpuData.currentLoad.toFixed(2),
         process: {
-          cpu_usage_percent: processStats.cpu.toFixed(2), // Process-specific CPU usage
-          memory_usage_mb: (processStats.memory / (1024 ** 2)).toFixed(2) // Process-specific memory usage in MB
+          cpu_usage_percent: processStats.cpu.toFixed(2),
+          memory_usage_mb: (processStats.memory / (1024 ** 2)).toFixed(2)
         },
         memory: {
-          total_gb: (totalMemory / (1024 ** 3)).toFixed(2), // Total memory in GB
-          used_gb: (usedMemory / (1024 ** 3)).toFixed(2), // Used memory in GB
-          usage_percent: ((usedMemory / totalMemory) * 100).toFixed(2) // Memory usage percentage
+          total_gb: (totalMemory / (1024 ** 3)).toFixed(2),
+          used_gb: (usedMemory / (1024 ** 3)).toFixed(2),
+          usage_percent: ((usedMemory / totalMemory) * 100).toFixed(2)
         },
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19), // Format as YYYY-MM-DD HH:MM:SS
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         uptime: uptimeStr
       },
     };
 
-    // Send response
     const response = {
       data: data,
       valid: true,

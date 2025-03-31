@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Access Denied - Canteen POS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #ffffff;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.4s ease-out;
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+  <div id="notAllowedContainer" class="relative bg-white w-full max-w-sm rounded-lg px-6 py-8 text-center">
+    <!-- Cross Icon indicating denial -->
+    <div class="flex items-center justify-center mb-4 mt-2">
+      <div class="bg-red-100 text-red-600 rounded-full p-2">
+        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </div>
+    </div>
+    
+    <!-- Header Message -->
+    <h1 id="headerMsg" class="text-2xl font-bold text-gray-800 mb-1 animate-fadeIn">
+      Access Denied
+    </h1>
+    <p class="text-sm text-gray-500 mb-6">
+      You are not allowed to view other pages. Please go to the Order Page.
+    </p>
+    
+    <!-- Navigation Button -->
+    <a href="/orders/new" class="inline-block w-full bg-green-600 text-white text-center py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+      Go to Order Page
+    </a>
+  </div>
+</body>
+</html>
