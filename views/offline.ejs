@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Offline</title>
+  <style>
+    /* General Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* Body Styling */
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    /* Container Styling */
+    .container {
+      background: #ffffff;
+      padding: 40px 60px;
+      border-radius: 12px;
+      box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+      max-width: 500px;
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    /* Heading Styling */
+    h1 {
+      font-size: 2.5rem;
+      color: #e74c3c;
+      margin-bottom: 20px;
+    }
+
+    /* Subheading Styling */
+    p {
+      font-size: 1.2rem;
+      color: #333333;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+
+    /* Button Styling */
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      font-size: 1rem;
+      color: #fff;
+      background-color: #3498db;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.3s ease;
+    }
+
+    .btn:hover {
+      background-color: #2980b9;
+      transform: scale(1.05);
+    }
+
+    /* Animation */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>System Offline</h1>
+    <p>We're sorry, but the system is currently unavailable. Please check back later or contact support if the issue persists.</p>
+    <button class="btn" onclick="window.location.reload()">Refresh Page</button>
+  </div>
+</body>
+</html>
