@@ -172,8 +172,10 @@ router.post('/place-pos', async (req, res) => {
         errorCorrectionLevel: 'H'
       });
 
+      // Note: We now also include the orderNumber in the UPI transaction.
       const newTransaction = new UpiTransaction({
         orderId,
+        orderNumber, // Added field
         upiId: finalUpiId,
         qrCode: upiUri,  // Save the UPI URI (text) used to generate the QR code.
         status: "Pending"
