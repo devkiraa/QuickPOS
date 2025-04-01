@@ -17,15 +17,15 @@ const app = express();
 
 // Track server start time
 const SERVER_START_TIME = Date.now();
-let serverStatus = 'normal'; // "normal" means all pages accessible, "restricted" limits pages
+let serverStatus = 'normal'; // "normal": all pages accessible, "restricted": only allowed pages, "offline": no pages (except API) available
 
-// List of allowed URL patterns when restricted mode is on.
+// List of allowed URL patterns when in restricted mode.
 // Allowed pages: orderForm.ejs, menu.ejs, success.ejs, and any dynamic orders/place URL.
 const allowedPathsRestricted = [
   '/orders/new',
   '/orders/menu',      // allows any URL starting with /orders/menu
   '/orders/success',
-  '/orders/place'      // allows any dynamic URL starting with /orders/place
+  '/orders/place'
 ];
 
 // Middleware to check server status and restrict access if necessary.
@@ -33,15 +33,18 @@ function restrictAccess(req, res, next) {
   // Always allow API endpoints
   if (req.originalUrl.startsWith('/api/')) return next();
 
-  // Only apply this check if serverStatus (after trimming) is "restricted"
-  if (serverStatus.trim() === 'restricted') {
-    // Check if the requested URL starts with one of the allowed paths.
-    const isAllowed = allowedPathsRestricted.some(pathPrefix =>
-      req.originalUrl.startsWith(pathPrefix)
+  // If server is offline, render the offline page for all non-API routes.
+  if (serverStatus === 'offline') {
+    return res.render('offline'); // Create an offline.ejs view.
+  }
+
+  // If server is restricted, allow only certain pages.
+  if (serverStatus === 'restricted') {
+    const isAllowed = allowedPathsRestricted.some(prefix =>
+      req.originalUrl.startsWith(prefix)
     );
     if (!isAllowed) {
-      // Render a "Not Allowed" page.
-      return res.render('notAllowed'); // Ensure you have created a notAllowed.ejs view.
+      return res.render('notAllowed'); // Create a notAllowed.ejs view.
     }
   }
   next();
@@ -83,7 +86,7 @@ app.get('/', (req, res) => {
   res.redirect('/orders/new');
 });
 
-// API endpoint to update server status (e.g., normal, restricted)
+// API endpoint to update server status (e.g., normal, restricted, offline)
 app.post('/api/update-server-status', (req, res) => {
   // Trim status to remove extra whitespace if any.
   serverStatus = req.body.status.trim();
@@ -91,7 +94,7 @@ app.post('/api/update-server-status', (req, res) => {
   res.sendStatus(200);
 });
 
-// API endpoint to fetch server status and metrics
+// API endpoint to fetch current server status (mode)
 app.get('/api/status', async (req, res) => {
   try {
     // Calculate uptime
@@ -144,7 +147,11 @@ app.get('/api/status', async (req, res) => {
   }
 });
 
-app.get('/api/mode', (req,res) => {res.status(200).json({mode: serverStatus});});
+// API endpoint to fetch the current mode
+app.get('/api/mode', (req, res) => {
+  res.status(200).json({ mode: serverStatus });
+});
+
 // Helper function to format uptime as HH:MM:SS
 function formatUptime(uptimeMs) {
   const totalSeconds = Math.floor(uptimeMs / 1000);
