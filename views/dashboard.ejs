@@ -366,10 +366,18 @@
         alert("No current order to complete.");
         return;
       }
+      // Get the selected payment mode
+      const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
+      // If UPI is selected, include the active UPI id; otherwise, leave it blank.
+      const activeUpi = "<%= activeUpi ? activeUpi.upiId : '' %>";
       fetch("/orders/complete-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: currentOrderId })
+        body: JSON.stringify({ 
+          orderId: currentOrderId, 
+          paymentMode: paymentMode, 
+          upiId: paymentMode === "UPI" ? activeUpi : "" 
+        })
       })
       .then(response => response.json())
       .then(result => {

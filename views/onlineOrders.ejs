@@ -141,6 +141,7 @@
   <script>
     let currentOrderId = "";
     let currentAmount = 0;
+    let activeUpiId = "<%= (activeUpi && activeUpi.upiId) ? activeUpi.upiId : '' %>"; // Store UPI ID for easier access
 
     // Open the payment modal and set order details
     function openPaymentModal(orderId, amount) {
@@ -150,6 +151,7 @@
       // Reset radio button to default (Cash) and hide UPI section
       document.querySelector('input[name="paymentMode"][value="Cash"]').checked = true;
       document.getElementById('upiSection').classList.add('hidden');
+      document.getElementById('upiQr').src = ""; // Clear previous QR code
       // Show the modal
       document.getElementById('paymentModal').style.display = "flex";
     }
@@ -159,34 +161,80 @@
       document.getElementById('paymentModal').style.display = "none";
     }
 
-    // Listen for changes in payment mode to toggle UPI section visibility
-    document.querySelectorAll('input[name="paymentMode"]').forEach(radio => {
-      radio.addEventListener('change', function() {
-        if (this.value === "UPI") {
-          // Construct a QR code URL using the active UPI id and order amount.
-          // The active UPI id is provided from EJS.
-          const upiId = "<%= (activeUpi && activeUpi.upiId) ? activeUpi.upiId : '' %>";
-          // Construct UPI URI with tn parameter using the order details.
-          const tn = encodeURIComponent("Payment for Order #" + currentOrderId);
-          const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?data=" + 
-            encodeURIComponent("upi://pay?pa=" + upiId + "&am=" + currentAmount.toFixed(2) + "&cu=INR&tn=" + tn);
-          document.getElementById('upiQr').src = qrUrl;
-          document.getElementById('upiSection').classList.remove('hidden');
+    // Function to initiate the UPI transaction logging
+    async function initiateUpiTransaction() {
+      if (!activeUpiId) {
+          alert("Error: Active UPI ID is not configured.");
+          return false; // Indicate failure
+      }
+      const data = {
+        orderId: currentOrderId,
+        amount: currentAmount,
+        upiId: activeUpiId
+      };
+
+      try {
+        const response = await fetch("/orders/initiate-upi", { // NEW Endpoint
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          console.log("UPI transaction initiated successfully for order:", currentOrderId);
+          return true; // Indicate success
         } else {
-          document.getElementById('upiSection').classList.add('hidden');
+          alert("Error initiating UPI transaction: " + result.message);
+          return false; // Indicate failure
+        }
+      } catch (err) {
+        console.error("Error calling /initiate-upi:", err);
+        alert("Network error initiating UPI transaction.");
+        return false; // Indicate failure
+      }
+    }
+
+    // Listen for changes in payment mode
+    document.querySelectorAll('input[name="paymentMode"]').forEach(radio => {
+      radio.addEventListener('change', async function() { // Make listener async
+        const upiSection = document.getElementById('upiSection');
+        if (this.value === "UPI") {
+          // Attempt to initiate the UPI transaction record *before* showing QR
+          const initiated = await initiateUpiTransaction();
+
+          if (initiated) {
+            // If initiation successful, generate and show QR code
+            const tn = encodeURIComponent("Payment for Order #" + currentOrderId);
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(`upi://pay?pa=${activeUpiId}&am=${currentAmount.toFixed(2)}&cu=INR&tn=${tn}`)}`;
+            document.getElementById('upiQr').src = qrUrl;
+            upiSection.classList.remove('hidden');
+          } else {
+            // If initiation failed, keep UPI section hidden and potentially revert selection?
+            upiSection.classList.add('hidden');
+            // Optional: Switch back to Cash if UPI initiation fails
+            // document.querySelector('input[name="paymentMode"][value="Cash"]').checked = true;
+            alert("Failed to set up UPI payment. Please try again or use Cash.");
+          }
+        } else {
+          // If switched back to Cash (or other non-UPI method), hide the UPI section
+          upiSection.classList.add('hidden');
+          document.getElementById('upiQr').src = ""; // Clear QR code
         }
       });
     });
 
-    // Complete the order by updating payment status
+    // Complete the order (No changes needed here)
     function completeOrder() {
       const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
-      const data = { 
+      const data = {
         orderId: currentOrderId,
         paymentMode: paymentMode
       };
+      // The backend route /complete-payment already handles finding the order
+      // and updating the UpiTransaction status if paymentMode is UPI.
       if (paymentMode === "UPI") {
-        data.upiId = "<%= (activeUpi && activeUpi.upiId) ? activeUpi.upiId : '' %>";
+        data.upiId = activeUpiId; // Send the active UPI ID along
       }
       fetch("/orders/complete-payment", {
         method: "POST",
@@ -209,9 +257,11 @@
       });
     }
 
-    // Cancel the order (delete from database)
+    // Cancel the order (No changes needed here)
     function cancelOrder() {
       if (confirm("Are you sure you want to cancel Order " + currentOrderId + "? This will remove the order from the database.")) {
+        // Optional: You might want another backend call here to specifically cancel/delete
+        // the 'Pending' UpiTransaction if one was created.
         fetch("/orders/delete/" + currentOrderId, {
           method: "DELETE"
         })
@@ -220,7 +270,7 @@
           if (result.success) {
             alert("Order " + currentOrderId + " cancelled.");
             closeModal();
-            location.reload();
+            location.reload(); // Reload to reflect the change
           } else {
             alert("Error: " + result.message);
           }

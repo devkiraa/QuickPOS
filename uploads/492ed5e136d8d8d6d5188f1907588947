@@ -1,6 +1,0 @@
-﻿name,section,subsection,price,imageUrl,qty
-Coca Cola,Drinks,Cold Drinks,1.5,http://example.com/images/coke.png,100
-Pepsi,Drinks,Cold Drinks,1.4,http://example.com/images/pepsi.png,80
-Burger,Snacks,Fast Food,3.25,http://example.com/images/burger.png,50
-Fries,Snacks,Side,1.75,http://example.com/images/fries.png,75
-Water,Drinks,Still,1,http://example.com/images/water.png,200
