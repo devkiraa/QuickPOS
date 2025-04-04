@@ -1,6 +1,7 @@
 // routes/dashboardRoutes.js
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcrypt');
 const Order = require('../models/Order');
 const FoodItem = require('../models/FoodItem');
 const User = require('../models/User');
@@ -12,16 +13,40 @@ router.get('/login', (req, res) => {
   res.render('login');
 });
 
-// Handle login (simple example)
+// Login route
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  // In production, compare hashed passwords instead
-  const user = await User.findOne({ username, password });
-  if (user && user.role === 'canteen manager') {
-    req.session.user = user; // make sure you have express-session configured
+  try {
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.render('login', { error: 'Invalid username or password' });
+    }
+    // Compare submitted password with hashed password in DB
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.render('login', { error: 'Invalid username or password' });
+    }
+    // On success, save user info in session and redirect
+    req.session.user = user;
     res.redirect('/dashboard');
-  } else {
-    res.render('login', { error: 'Invalid credentials' });
+  } catch (error) {
+    console.error(error);
+    res.render('login', { error: 'An error occurred. Please try again.' });
+  }
+});
+
+// Signup route
+router.post('/signup', async (req, res) => {
+  const { username, password } = req.body;
+  try {
+    // Hash the password with a salt round of 10
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ username, password: hashedPassword });
+    await newUser.save();
+    res.redirect('/dashboard/login');
+  } catch (error) {
+    console.error(error);
+    res.render('login', { error: 'Error creating account. Please try again.' });
   }
 });
 

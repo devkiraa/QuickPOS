@@ -8,22 +8,70 @@
 </head>
 <body class="bg-gray-100">
   <div class="max-w-md mx-auto my-20 p-8 bg-white rounded-lg shadow-lg">
-    <h2 class="text-3xl font-bold text-center text-orange-600 mb-8">Canteen POS Login</h2>
-    <form action="/dashboard/login" method="POST" class="space-y-6">
-      <div>
-        <label for="username" class="block text-gray-700 font-medium">Username</label>
-        <input type="text" id="username" name="username" required
-          class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-orange-400">
-      </div>
-      <div>
-        <label for="password" class="block text-gray-700 font-medium">Password</label>
-        <input type="password" id="password" name="password" required
-          class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-orange-400">
-      </div>
-      <button type="submit" class="w-full bg-orange-500 text-white rounded py-2 hover:bg-orange-600 transition">
+    <h2 class="text-3xl font-bold text-center text-orange-600 mb-8">Canteen POS Login / Signup</h2>
+    <!-- Tab Buttons for switching between Login and Signup -->
+    <div class="mb-4 flex">
+      <button id="loginTab" onclick="showLogin()" class="w-1/2 bg-orange-500 text-white rounded py-2 hover:bg-orange-600 transition">
         Login
       </button>
-    </form>
+      <button id="signupTab" onclick="showSignup()" class="w-1/2 bg-gray-300 text-gray-800 rounded py-2 hover:bg-gray-400 transition">
+        Signup
+      </button>
+    </div>
+    <!-- Login Form -->
+    <div id="loginForm">
+      <form action="/dashboard/login" method="POST" class="space-y-6">
+        <div>
+          <label for="username" class="block text-gray-700 font-medium">Username</label>
+          <input type="text" id="username" name="username" required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-orange-400">
+        </div>
+        <div>
+          <label for="password" class="block text-gray-700 font-medium">Password</label>
+          <input type="password" id="password" name="password" required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-orange-400">
+        </div>
+        <button type="submit" class="w-full bg-orange-500 text-white rounded py-2 hover:bg-orange-600 transition">
+          Login
+        </button>
+      </form>
+    </div>
+    <!-- Signup Form -->
+    <div id="signupForm" class="hidden">
+      <form action="/dashboard/signup" method="POST" class="space-y-6">
+        <div>
+          <label for="signupUsername" class="block text-gray-700 font-medium">Username</label>
+          <input type="text" id="signupUsername" name="username" required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-orange-400">
+        </div>
+        <div>
+          <label for="signupPassword" class="block text-gray-700 font-medium">Password</label>
+          <input type="password" id="signupPassword" name="password" required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:border-orange-400">
+        </div>
+        <button type="submit" class="w-full bg-green-500 text-white rounded py-2 hover:bg-green-600 transition">
+          Sign Up
+        </button>
+      </form>
+    </div>
   </div>
+
+  <script>
+    function showLogin() {
+      document.getElementById('loginForm').classList.remove('hidden');
+      document.getElementById('signupForm').classList.add('hidden');
+      document.getElementById('loginTab').classList.add('bg-orange-500', 'text-white');
+      document.getElementById('signupTab').classList.remove('bg-green-500', 'text-white');
+      document.getElementById('signupTab').classList.add('bg-gray-300', 'text-gray-800');
+    }
+    
+    function showSignup() {
+      document.getElementById('signupForm').classList.remove('hidden');
+      document.getElementById('loginForm').classList.add('hidden');
+      document.getElementById('signupTab').classList.add('bg-green-500', 'text-white');
+      document.getElementById('loginTab').classList.remove('bg-orange-500', 'text-white');
+      document.getElementById('loginTab').classList.add('bg-gray-300', 'text-gray-800');
+    }
+  </script>
 </body>
 </html>

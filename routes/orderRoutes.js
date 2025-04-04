@@ -1,13 +1,13 @@
 // routes/orderRoutes.js
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const mongoose = require('mongoose');
-const QRCode = require('qrcode');
-const Order = require('../models/Order');
-const FoodItem = require('../models/FoodItem');
-const Upi = require('../models/Upi');
-const UpiTransaction = require('../models/UpiTransaction'); // new model for UPI transactions
-const { v4: uuidv4 } = require('uuid');
+const mongoose = require("mongoose");
+const QRCode = require("qrcode");
+const Order = require("../models/Order");
+const FoodItem = require("../models/FoodItem");
+const Upi = require("../models/Upi");
+const UpiTransaction = require("../models/UpiTransaction"); // new model for UPI transactions
+const { v4: uuidv4 } = require("uuid");
 
 /* ========================================================
    Helper Function for Sequential Order Number
@@ -21,15 +21,45 @@ async function generateNextOrderNumber() {
 }
 
 /* ========================================================
+   Helper Function: Create UPI Transaction
+   This function constructs the UPI URI (including a transaction note),
+   saves the transaction data in the upi_transactions collection, and returns
+   the created transaction record.
+   ======================================================== */
+async function createUpiTransaction(orderId, orderNumber, upiId, totalAmount) {
+  const payeeName = "Amrita Canteen";
+  const amountStr = totalAmount.toFixed(2);
+  const transactionNote = "Payment for Order #" + orderNumber;
+  const tnParam = encodeURIComponent(transactionNote);
+  const upiUri = `upi://pay?pa=${encodeURIComponent(
+    upiId
+  )}&pn=${encodeURIComponent(payeeName)}&am=${encodeURIComponent(
+    amountStr
+  )}&tn=${tnParam}&cu=INR`;
+
+  // Here we save the UPI URI (text) in the qrCode field.
+  const newTransaction = new UpiTransaction({
+    orderId,
+    orderNumber,
+    upiId,
+    qrCode: upiUri, // saving the UPI URI text
+    tn: transactionNote,
+    status: "Pending",
+  });
+  await newTransaction.save();
+  return newTransaction;
+}
+
+/* ========================================================
    Online Orders (via Order Form and Menu)
    ======================================================== */
 // GET: Render order form to collect customer details (Online)
-router.get('/new', (req, res) => {
-  res.render('orderForm');
+router.get("/new", (req, res) => {
+  res.render("orderForm");
 });
 
 // POST: Submit customer details and generate order id (Online)
-router.post('/new', async (req, res) => {
+router.post("/new", async (req, res) => {
   try {
     const { customerName, mobile } = req.body;
     // For online orders, orderId is a UUID.
@@ -43,7 +73,7 @@ router.post('/new', async (req, res) => {
       items: [],
       totalAmount: 0,
       status: "Pending",
-      orderSource: "online"
+      orderSource: "online",
     });
     await newOrder.save();
     res.redirect(`/orders/menu/${orderId}`);
@@ -54,11 +84,11 @@ router.post('/new', async (req, res) => {
 });
 
 // GET: Render menu for the online order
-router.get('/menu/:orderId', async (req, res) => {
+router.get("/menu/:orderId", async (req, res) => {
   try {
     const foodItems = await FoodItem.find({});
-    const sections = await FoodItem.distinct('section');
-    res.render('menu', { orderId: req.params.orderId, foodItems, sections });
+    const sections = await FoodItem.distinct("section");
+    res.render("menu", { orderId: req.params.orderId, foodItems, sections });
   } catch (err) {
     console.error(err);
     res.status(500).send("Error loading menu");
@@ -66,10 +96,9 @@ router.get('/menu/:orderId', async (req, res) => {
 });
 
 // POST: Place Online Order from menu form submission
-router.post('/place/:orderId', async (req, res) => {
+router.post("/place/:orderId", async (req, res) => {
   try {
     const orderId = req.params.orderId;
-    // Expect req.body.items to be a JSON string representing an array of items.
     let itemsData;
     try {
       itemsData = JSON.parse(req.body.items);
@@ -81,8 +110,8 @@ router.post('/place/:orderId', async (req, res) => {
     for (const item of itemsData) {
       totalAmount += item.price * item.quantity;
       itemsArray.push({
-        foodItem: item.id,
-        quantity: item.quantity
+        foodItem: item.id, // item.id is the FoodItem _id (as string)
+        quantity: item.quantity,
       });
     }
     const order = await Order.findOne({ orderId });
@@ -92,7 +121,7 @@ router.post('/place/:orderId', async (req, res) => {
     order.items = itemsArray;
     order.totalAmount = totalAmount;
     await order.save();
-    res.redirect('/orders/success?orderId=' + orderId);
+    res.redirect("/orders/success?orderId=" + orderId);
   } catch (err) {
     console.error("Error placing online order:", err);
     res.status(500).send("Error placing online order");
@@ -103,7 +132,7 @@ router.post('/place/:orderId', async (req, res) => {
    POS Orders (handled via AJAX)
    ======================================================== */
 // POST: Place POS Order (from counter)
-router.post('/place-pos', async (req, res) => {
+router.post("/place-pos", async (req, res) => {
   try {
     const { paymentMode, upiId, orderItems, orderSource } = req.body;
     let orderId;
@@ -115,12 +144,14 @@ router.post('/place-pos', async (req, res) => {
     } else {
       orderId = uuidv4();
     }
-    // Parse order items (expected as JSON string)
     let parsedOrderItems;
     try {
-      parsedOrderItems = typeof orderItems === 'string' ? JSON.parse(orderItems) : orderItems;
+      parsedOrderItems =
+        typeof orderItems === "string" ? JSON.parse(orderItems) : orderItems;
     } catch (e) {
-      return res.status(400).json({ success: false, message: "Invalid JSON for order items" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid JSON for order items" });
     }
     let totalAmount = 0;
     const itemsArray = [];
@@ -129,7 +160,7 @@ router.post('/place-pos', async (req, res) => {
       totalAmount += item.price * item.quantity;
       itemsArray.push({
         foodItem: new mongoose.Types.ObjectId(item.id),
-        quantity: item.quantity
+        quantity: item.quantity,
       });
     }
     // For POS orders, we assign an orderNumber regardless of the orderSource.
@@ -137,14 +168,17 @@ router.post('/place-pos', async (req, res) => {
 
     // Determine the final payment mode.
     // For counter orders, if no paymentMode is provided, default to "Cash".
-    let finalPaymentMode = (orderSource === "counter" && !paymentMode) ? "Cash" : paymentMode;
+    let finalPaymentMode =
+      orderSource === "counter" && !paymentMode ? "Cash" : paymentMode;
     let finalUpiId = upiId;
     if (finalPaymentMode === "UPI" && !upiId) {
       const activeUpiDoc = await Upi.findOne({ active: true });
       if (activeUpiDoc && activeUpiDoc.upiId) {
         finalUpiId = activeUpiDoc.upiId;
       } else {
-        return res.status(400).json({ success: false, message: "Active UPI account not set." });
+        return res
+          .status(400)
+          .json({ success: false, message: "Active UPI account not set." });
       }
     }
 
@@ -159,49 +193,38 @@ router.post('/place-pos', async (req, res) => {
       upiId: finalPaymentMode === "UPI" ? finalUpiId : "",
       totalAmount,
       status: "Pending",
-      orderSource: orderSource || "counter"
+      orderSource: orderSource || "counter",
     });
     await newOrder.save();
 
-    // If the payment mode is UPI, generate a UPI QR code and save a transaction record.
+    // If the payment mode is UPI, generate a UPI QR code and create a transaction record.
     if (finalPaymentMode === "UPI") {
-      const payeeName = "Amrita Canteen";
-      const amountStr = totalAmount.toFixed(2);
-      // Create a transaction note string
-      const transactionNote = "Payment for Order #" + orderNumber;
-      const tnParam = encodeURIComponent(transactionNote);
-      const upiUri = `upi://pay?pa=${encodeURIComponent(finalUpiId)}&pn=${encodeURIComponent(payeeName)}&am=${encodeURIComponent(amountStr)}&tn=${tnParam}&cu=INR`;
-      const qrCodeData = await QRCode.toDataURL(upiUri, {
-        width: 300,
-        errorCorrectionLevel: 'H'
-      });
-
-      // Create a new UPI transaction record, including the transaction note.
-      const newTransaction = new UpiTransaction({
+      const transaction = await createUpiTransaction(
         orderId,
-        orderNumber, // added field
-        upiId: finalUpiId,
-        qrCode: upiUri,  // saving the UPI URI (text) used to generate the QR code.
-        tn: transactionNote,  // new field for transaction note (make sure your model supports this)
-        status: "Pending"
-      });
-      await newTransaction.save();
+        orderNumber,
+        finalUpiId,
+        totalAmount
+      );
+      // You can include the transaction details in the response if needed.
     }
 
-    // Return both orderId and orderNumber in the response
     res.json({ success: true, orderId, orderNumber });
   } catch (err) {
     console.error("Error in place-pos endpoint:", err);
-    res.status(500).json({ success: false, message: "Error placing POS order: " + err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Error placing POS order: " + err.message,
+      });
   }
 });
-
 
 /* ========================================================
    Common Endpoints
    ======================================================== */
 // GET: Order List (latest orders first)
-router.get('/list', async (req, res) => {
+router.get("/list", async (req, res) => {
   try {
     const orders = await Order.find({}).sort({ createdAt: -1 });
     const activeUpi = await Upi.findOne({ active: true });
@@ -209,7 +232,12 @@ router.get('/list', async (req, res) => {
     if (req.query.ajax) {
       return res.json({ orders });
     }
-    res.render('orderList', { orders, user: req.session.user, activeUpi, allFoodItems });
+    res.render("orderList", {
+      orders,
+      user: req.session.user,
+      activeUpi,
+      allFoodItems,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send("Error fetching order list");
@@ -217,31 +245,37 @@ router.get('/list', async (req, res) => {
 });
 
 // GET: Fetch Order Details
-router.get('/details/:orderId', async (req, res) => {
+router.get("/details/:orderId", async (req, res) => {
   try {
     const order = await Order.findOne({ orderId: req.params.orderId });
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
     res.json({ success: true, order });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: "Error fetching order details" });
+    res
+      .status(500)
+      .json({ success: false, message: "Error fetching order details" });
   }
 });
 
 // POST: Modify an Order (add extra payment and additional items)
-router.post('/modify/:orderId', async (req, res) => {
+router.post("/modify/:orderId", async (req, res) => {
   try {
     console.log("Modify order request body:", req.body);
     const orderId = req.params.orderId;
     const { extraAmount, additionalItems, paymentMode, upiId } = req.body;
-    
+
     const order = await Order.findOne({ orderId });
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
-    
+
     order.orderData = order.orderData || {};
     if (!order.orderData.originalTotal) {
       order.orderData.originalTotal = order.totalAmount || 0;
@@ -249,7 +283,7 @@ router.post('/modify/:orderId', async (req, res) => {
     }
     const originalTotal = order.orderData.originalTotal;
     console.log("Original total:", originalTotal);
-    
+
     let existingAdditional = order.orderData.additionalItems || {};
     if (additionalItems) {
       console.log("Received additionalItems:", additionalItems);
@@ -264,65 +298,86 @@ router.post('/modify/:orderId', async (req, res) => {
         }
       } catch (e) {
         console.error("Error parsing additionalItems:", e);
-        return res.status(400).json({ success: false, message: "Invalid JSON for additional items" });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Invalid JSON for additional items",
+          });
       }
     }
     order.orderData.additionalItems = existingAdditional;
     console.log("Merged additional items:", existingAdditional);
-    
+
     const extra = Number(extraAmount);
     if (isNaN(extra)) {
-      return res.status(400).json({ success: false, message: "Extra amount must be a number" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Extra amount must be a number" });
     }
     order.orderData.extraPayment = extra;
     console.log("Extra payment:", extra);
-    
+
     let additionalTotal = 0;
     for (const key in existingAdditional) {
       const item = existingAdditional[key];
       additionalTotal += item.price * item.quantity;
     }
     console.log("Additional items total:", additionalTotal);
-    
+
     order.totalAmount = originalTotal + additionalTotal + extra;
     console.log("New total calculated:", order.totalAmount);
-    
+
     order.paymentMode = paymentMode;
     if (paymentMode === "UPI") {
       order.upiId = upiId;
     }
-    
+
     await order.save();
     console.log("Order modified successfully in DB. Order ID:", order.orderId);
     res.json({ success: true, orderId });
   } catch (err) {
     console.error("Error in modify endpoint:", err);
-    res.status(500).json({ success: false, message: "Error modifying order: " + err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Error modifying order: " + err.message,
+      });
   }
 });
 
 // DELETE: Delete an Order
-router.delete('/delete/:orderId', async (req, res) => {
+router.delete("/delete/:orderId", async (req, res) => {
   try {
     const orderId = req.params.orderId;
     const result = await Order.deleteOne({ orderId });
     if (result.deletedCount === 0) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
     res.json({ success: true, orderId });
   } catch (err) {
     console.error("Error in delete endpoint:", err);
-    res.status(500).json({ success: false, message: "Error deleting order: " + err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Error deleting order: " + err.message,
+      });
   }
 });
 
 // POST: Complete Payment - update order status to "Paid" and update UPI transactions if any.
-router.post('/complete-payment', async (req, res) => {
+router.post("/complete-payment", async (req, res) => {
   try {
     const { orderId, paymentMode, upiId } = req.body;
     const order = await Order.findOne({ orderId });
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
     order.status = "Paid";
     order.paymentMode = paymentMode;
@@ -333,34 +388,44 @@ router.post('/complete-payment', async (req, res) => {
 
     // Update UPI transactions for this order to "Paid"
     if (paymentMode === "UPI") {
-      await UpiTransaction.updateMany({ orderId }, { $set: { status: "Paid" } });
+      await UpiTransaction.updateMany(
+        { orderId },
+        { $set: { status: "Paid" } }
+      );
     }
 
     res.json({ success: true, orderId });
   } catch (err) {
     console.error("Error in complete-payment endpoint:", err);
-    res.status(500).json({ success: false, message: "Error completing payment: " + err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Error completing payment: " + err.message,
+      });
   }
 });
 
 // GET: Success Page (display order details if orderId provided)
-router.get('/success', async (req, res) => {
+router.get("/success", async (req, res) => {
   try {
     const orderId = req.query.orderId;
     let order = null;
     if (orderId) {
-      order = await Order.findOne({ orderId }).populate('items.foodItem').exec();
+      order = await Order.findOne({ orderId })
+        .populate("items.foodItem")
+        .exec();
     }
     const activeUpi = await Upi.findOne({ active: true });
-    res.render('success', { order, activeUpi });
+    res.render("success", { order, activeUpi });
   } catch (err) {
     console.error(err);
-    res.render('success', { order: null, activeUpi: null });
+    res.render("success", { order: null, activeUpi: null });
   }
 });
 
 // GET: Fetch Active UPI Details
-router.get('/upi/active', async (req, res) => {
+router.get("/upi/active", async (req, res) => {
   try {
     const activeUpi = await Upi.findOne({ active: true });
     if (!activeUpi) {
@@ -369,19 +434,21 @@ router.get('/upi/active', async (req, res) => {
     res.json({ success: true, activeUpi });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: "Error fetching UPI details" });
+    res
+      .status(500)
+      .json({ success: false, message: "Error fetching UPI details" });
   }
 });
 
 // GET: Online Orders Page for Payment Reception
-router.get('/online', async (req, res) => {
+router.get("/online", async (req, res) => {
   try {
     const orders = await Order.find({ orderSource: "online" })
       .sort({ createdAt: -1 })
-      .populate('items.foodItem')
+      .populate("items.foodItem")
       .exec();
     const activeUpi = await Upi.findOne({ active: true });
-    res.render('onlineOrders', { orders, user: req.session.user, activeUpi });
+    res.render("onlineOrders", { orders, user: req.session.user, activeUpi });
   } catch (err) {
     console.error(err);
     res.status(500).send("Error fetching online orders");

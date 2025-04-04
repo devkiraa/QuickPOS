@@ -1,3 +1,4 @@
+//server.js
 require('dotenv').config(); // Load environment variables from .env
 
 const express = require('express');
@@ -12,6 +13,7 @@ const si = require('systeminformation'); // For system-wide metrics
 const orderRoutes = require('./routes/orderRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const upiTransactionRoutes = require('./routes/upiTransactionRoutes');
+const csvtodataRoutes = require('./routes/csvtodata');
 
 const app = express();
 
@@ -80,6 +82,7 @@ app.use(restrictAccess);
 app.use('/orders', orderRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/upi-transactions', upiTransactionRoutes);
+app.use('/csvtodata', csvtodataRoutes);
 
 // Home page (for demo, you can change it)
 app.get('/', (req, res) => {

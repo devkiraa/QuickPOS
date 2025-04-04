@@ -1,22 +1,8 @@
-canteen-management/
-├── models/
-│   ├── FoodItem.js
-│   ├── Upi.js
-│   ├── Order.js
-│   └── User.js    
-├── routes/
-│   ├── orderRoutes.js
-│   ├── paymentRoutes.js
-│   ├── workerRoutes.js
-│   └── dashboardRoutes.js
-├── views/
-│   ├── orderForm.ejs
-│   ├── menu.ejs
-│   ├── dashboard.ejs
-│   ├── settings.ejs
-│   ├── login.ejs
-│   ├── orderorm.ejs
-│   ├── orderList.ejs
-│   └── success.ejs
-├── server.js
-└── package.json
+Things to do 
+* update the UI of QR on the mobile app
+* update the ui of both the qr of laptop screen
+* remove all the alerts 
+* adding food items through csv
+* add qty for items
+* option to remove the upi ids
+* add 

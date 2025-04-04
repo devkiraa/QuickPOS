@@ -164,9 +164,12 @@
       radio.addEventListener('change', function() {
         if (this.value === "UPI") {
           // Construct a QR code URL using the active UPI id and order amount.
-          // The UPI details are passed using EJS.
-          const upiId = "<%= typeof activeUpi !== 'undefined' && activeUpi ? activeUpi.upiId : '' %>";
-          const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?data=upi://pay?pa=" + upiId + "&am=" + currentAmount.toFixed(2) + "&cu=INR&tn=Payment";
+          // The active UPI id is provided from EJS.
+          const upiId = "<%= (activeUpi && activeUpi.upiId) ? activeUpi.upiId : '' %>";
+          // Construct UPI URI with tn parameter using the order details.
+          const tn = encodeURIComponent("Payment for Order #" + currentOrderId);
+          const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?data=" + 
+            encodeURIComponent("upi://pay?pa=" + upiId + "&am=" + currentAmount.toFixed(2) + "&cu=INR&tn=" + tn);
           document.getElementById('upiQr').src = qrUrl;
           document.getElementById('upiSection').classList.remove('hidden');
         } else {
@@ -178,13 +181,12 @@
     // Complete the order by updating payment status
     function completeOrder() {
       const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
-      // Build the data to send. If payment is by UPI, include the active UPI id.
       const data = { 
         orderId: currentOrderId,
         paymentMode: paymentMode
       };
       if (paymentMode === "UPI") {
-        data.upiId = "<%= activeUpi ? activeUpi.upiId : '' %>";
+        data.upiId = "<%= (activeUpi && activeUpi.upiId) ? activeUpi.upiId : '' %>";
       }
       fetch("/orders/complete-payment", {
         method: "POST",
@@ -192,13 +194,13 @@
         body: JSON.stringify(data)
       })
       .then(response => response.json())
-      .then(data => {
-        if (data.success) {
+      .then(result => {
+        if (result.success) {
           alert("Order " + currentOrderId + " marked as Paid.");
           closeModal();
           location.reload();
         } else {
-          alert("Error: " + data.message);
+          alert("Error: " + result.message);
         }
       })
       .catch(err => {
@@ -214,13 +216,13 @@
           method: "DELETE"
         })
         .then(response => response.json())
-        .then(data => {
-          if (data.success) {
+        .then(result => {
+          if (result.success) {
             alert("Order " + currentOrderId + " cancelled.");
             closeModal();
             location.reload();
           } else {
-            alert("Error: " + data.message);
+            alert("Error: " + result.message);
           }
         })
         .catch(err => {
@@ -228,48 +230,6 @@
           alert("Error cancelling order.");
         });
       }
-    }
-
-    // Provided function for fetching UPI (if needed for POS orders)
-    function makeOrder() {
-      if (Object.keys(orderItems).length === 0) {
-        alert("Please add at least one item to the order.");
-        return;
-      }
-      const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
-      // Generate a temporary orderId for the request
-      const orderId = generateOrderId();
-      const data = {
-        orderId: orderId,
-        paymentMode: paymentMode,
-        upiId: (paymentMode === 'UPI') ? "<%= activeUpi ? activeUpi.upiId : '' %>" : "",
-        orderItems: JSON.stringify(orderItems)
-      };
-      fetch("/orders/place-pos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      })
-      .then(response => response.json())
-      .then(result => {
-        if(result.success) {
-          currentOrderId = result.orderId || orderId;
-          currentOrderNumber = result.orderNumber;
-          showNotification("Order Placed: " + currentOrderNumber);
-          if (paymentMode === "UPI") {
-            showUpiPopup();
-          } else {
-            orderItems = {};
-            updateOrderDetails();
-          }
-        } else {
-          alert("Error placing order: " + result.message);
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        alert("Error placing order.");
-      });
     }
   </script>
 </body>

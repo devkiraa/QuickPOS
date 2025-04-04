@@ -62,7 +62,18 @@
               <input type="text" name="subsection" placeholder="Subsection (optional)" class="w-full border rounded px-2 py-1">
               <input type="number" step="0.01" name="price" placeholder="Price" required class="w-full border rounded px-2 py-1">
               <input type="text" name="imageUrl" placeholder="Image URL" class="w-full border rounded px-2 py-1">
-              <button type="submit" class="w-full bg-green-500 text-white rounded py-2 hover:bg-green-600 transition">Add Food Item</button>
+              <input type="number" name="qty" placeholder="Quantity" class="w-full border rounded px-2 py-1">
+              <button type="submit" class="w-full bg-green-500 text-white rounded py-2 hover:bg-green-600 transition">
+                Add Food Item
+              </button>
+            </form>
+            <hr class="my-4">
+            <h3 class="text-xl font-semibold text-green-600 mb-4">Bulk Upload Food Items (.csv)</h3>
+            <form action="/csvtodata/upload-fooditems-csv" method="POST" enctype="multipart/form-data">
+              <input type="file" name="csvFile" accept=".csv" required class="w-full border rounded px-2 py-1">
+              <button type="submit" class="w-full bg-blue-500 text-white rounded py-2 hover:bg-blue-600 transition">
+                Upload CSV
+              </button>
             </form>
           </section>
           <!-- Panel for Managing UPI IDs -->
@@ -88,7 +99,9 @@
             </ul>
             <form action="/dashboard/add-upi" method="POST" class="space-y-4">
               <input type="text" name="upiId" placeholder="Enter UPI ID" required class="w-full border rounded px-2 py-1">
-              <button type="submit" class="w-full bg-green-500 text-white rounded py-2 hover:bg-green-600 transition">Add UPI ID (Active)</button>
+              <button type="submit" class="w-full bg-green-500 text-white rounded py-2 hover:bg-green-600 transition">
+                Add UPI ID (Active)
+              </button>
             </form>
           </section>
         </div>
