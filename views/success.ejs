@@ -115,7 +115,7 @@
         <% if (activeUpi && order && order.status.toLowerCase() !== "paid") { %>
           <div class="flex justify-center space-x-4">
             <button
-              id="upiPaymentButton"
+              id="refreshButton"
               class="inline-block bg-green-600 text-white text-center py-3 rounded-lg font-semibold hover:bg-green-700 transition px-4"
             >
               Refresh
@@ -134,26 +134,12 @@
           Please complete your payment at the counter.
           </p>
           <script>
-            document
-              .getElementById("upiPaymentButton")
-              .addEventListener("click", async function () {
-                const upiId = "<%= activeUpi.upiId %>";
-                const payeeName = "Amrita Canteen";
-                const amount = "<%= order.totalAmount.toFixed(2) %>";
-                const upiUrl =
-                  "upi://pay?" +
-                  "pa=" + encodeURIComponent(upiId) +
-                  "&pn=" + encodeURIComponent(payeeName) +
-                  "&am=" + encodeURIComponent(amount) +
-                  "&cu=INR";
-
-                // Open UPI app
-                window.location.href = upiUrl;
-
-                // Immediately check the payment status
-                await fetchOrderStatus();
-              });
+            document.getElementById("refreshButton").addEventListener("click", async function () {
+              // Simply reload the page to check for updated payment status
+              location.reload();
+            });
           </script>
+          
         <% } %>
       <% } else { %>
         <p class="text-sm text-gray-700 mb-6">Your order has been placed successfully.</p>
