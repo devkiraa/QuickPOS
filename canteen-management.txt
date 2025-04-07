@@ -5,4 +5,4 @@ Things to do
 * adding food items through csv
 * add qty for items
 * option to remove the upi ids
-* add 
+* add a page to view all the orders live
