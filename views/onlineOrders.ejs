@@ -76,7 +76,7 @@
               <td class="py-2 px-4 text-center"><%= order.status %></td>
               <td class="py-2 px-4 text-center">
                 <% if(order.status === "Pending") { %>
-                  <button onclick="openPaymentModal('<%= order.orderId %>', <%= order.totalAmount %>)" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">Continue Order</button>
+                  <button onclick="openPaymentModal('<%= order.orderId %>', '<%= order.totalAmount %>')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">Continue Order</button>
                 <% } else { %>
                   <span class="text-green-600 font-bold">Paid</span>
                 <% } %>

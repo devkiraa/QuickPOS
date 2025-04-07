@@ -2,7 +2,7 @@ Things to do
 * update the UI of QR on the mobile app
 * update the ui of both the qr of laptop screen
 * remove all the alerts 
-* QTY need to work
-* add qty for items
 * 
-* add a page to view all the orders live
+* 
+* 
+* 
