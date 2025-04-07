@@ -52,9 +52,15 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
 }));
+
 // Connect to MongoDB Atlas using MONGO_URI from .env.
 mongoose.connect(process.env.MONGO_URI);
 mongoose.connection.on('error', console.error.bind(console, 'MongoDB connection error:'));
+
+// Log successful connection to MongoDB Atlas.
+mongoose.connection.once('open', () => {
+  console.log('Successfully connected to MongoDB Atlas.');
+});
 
 // Set EJS as templating engine.
 app.set('view engine', 'ejs');
@@ -84,4 +90,13 @@ app.get('/', (req, res) => {
 
 // Start server.
 const PORT = process.env.PORT || 3035;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = app.listen(PORT, () => {
+  const startTime = new Date(SERVER_START_TIME).toLocaleString();
+  const environment = process.env.NODE_ENV || 'development';
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Access the website at: http://localhost:${PORT}`);
+  console.log(`Server started at: ${startTime}`);
+  console.log(`Environment: ${environment}`);
+  console.log(`Process ID: ${process.pid}`);
+});
+
