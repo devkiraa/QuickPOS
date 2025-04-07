@@ -5,103 +5,101 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Settings - Canteen POS</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Poppins', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
 </head>
-<body class="bg-green-100 font-sans">
-  <div class="flex min-h-screen">
+<body class="bg-gray-100 text-gray-800 font-sans">
+  <div class="flex h-screen">
     <!-- Sidebar -->
-    <aside class="w-64 bg-white shadow-md flex flex-col">
-      <div class="p-6">
-        <h2 class="text-2xl font-bold text-green-600">Canteen Logo</h2>
-      </div>
-      <nav class="flex-1">
-        <ul>
-          <li><a href="/dashboard" class="block py-3 px-6 hover:bg-gray-50">Home</a></li>
-          <li><a href="/orders/list" class="block py-3 px-6 hover:bg-gray-50">Order List</a></li>
-          <li><a href="/orders/online" class="block py-3 px-6 hover:bg-gray-50">Online Orders</a></li>
-          <li><a href="/dashboard/manage-items" class="block py-3 px-6 hover:bg-gray-50">Manage Items</a></li>
-          <li><a href="/dashboard/settings" class="block py-3 px-6 text-green-600 font-semibold">Settings</a></li>
-        </ul>
+    <aside class="w-64 bg-white shadow-md hidden md:block">
+      <div class="p-6 text-green-700 text-2xl font-bold">SAMSKRITII</div>
+      <nav class="px-4">
+        <a href="/dashboard" class="block py-2 px-3 rounded hover:bg-green-100 font-medium text-gray-700">Dashboard</a>
+        <a href="/orders/list" class="block py-2 px-3 rounded hover:bg-green-100 font-medium text-gray-700">Order List</a>
+        <a href="/orders/online" class="block py-2 px-3 rounded hover:bg-green-100 font-medium text-gray-700">Online Orders</a>
+        <a href="/dashboard/manage-items" class="block py-2 px-3 rounded hover:bg-green-100 font-medium text-gray-700">Manage Items</a>
+        <a href="/dashboard/settings" class="block py-2 px-3 rounded bg-green-100 text-green-700 font-semibold">Settings</a>
+        <a href="/dashboard/logout" class="block py-2 px-3 mt-4 text-red-600 hover:bg-red-100 rounded font-medium">Logout</a>
       </nav>
-      <div class="p-6 border-t">
-        <div class="text-green-600 font-semibold"><%= user.username %></div>
-        <a href="/dashboard/logout" class="text-red-500 hover:underline">Logout</a>
-      </div>
     </aside>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col">
-      <!-- Top Bar -->
-      <header class="bg-white shadow p-4">
-        <input type="text" placeholder="Search settings..." class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-400">
-      </header>
+    <main class="flex-1 overflow-y-auto p-6">
+      <h1 class="text-2xl font-bold text-green-700 mb-6">Settings</h1>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-      <!-- Settings Body -->
-      <div class="p-6 space-y-8 overflow-y-auto">
-        <h2 class="text-2xl font-bold text-green-700">Settings</h2>
+        <!-- Add Food Item -->
+        <section class="bg-white p-6 rounded shadow">
+          <h2 class="text-xl font-semibold text-green-600 mb-4">Add Food Item</h2>
+          <form action="/dashboard/add-fooditem" method="POST" class="space-y-3">
+            <input type="text" name="name" placeholder="Name" required class="w-full border rounded px-3 py-2">
+            <input type="text" name="section" placeholder="Section" required class="w-full border rounded px-3 py-2">
+            <input type="text" name="subsection" placeholder="Subsection (optional)" class="w-full border rounded px-3 py-2">
+            <input type="number" step="0.01" name="price" placeholder="Price" required class="w-full border rounded px-3 py-2">
+            <input type="text" name="imageUrl" placeholder="Image URL" class="w-full border rounded px-3 py-2">
+            <input type="number" name="qty" placeholder="Quantity" class="w-full border rounded px-3 py-2">
+            <button type="submit" class="w-full bg-green-500 text-white rounded py-2 hover:bg-green-600 transition">
+              Add Food Item
+            </button>
+          </form>
+          <hr class="my-6">
+          <h2 class="text-xl font-semibold text-green-600 mb-4">Bulk Upload (.csv)</h2>
+          <form action="/csvtodata/upload-fooditems-csv" method="POST" enctype="multipart/form-data">
+            <input type="file" name="csvFile" accept=".csv" required class="w-full border rounded px-3 py-2 mb-3">
+            <button type="submit" class="w-full bg-blue-500 text-white rounded py-2 hover:bg-blue-600 transition">
+              Upload CSV
+            </button>
+          </form>
+        </section>
 
-        <!-- Grid Layout -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <!-- Add Food Item Panel -->
-          <section class="bg-white rounded shadow p-6">
-            <h3 class="text-xl font-semibold text-green-600 mb-4">Add Food Item</h3>
-            <form action="/dashboard/add-fooditem" method="POST" class="space-y-4">
-              <input type="text" name="name" placeholder="Name" required class="w-full border rounded px-2 py-1">
-              <input type="text" name="section" placeholder="Section" required class="w-full border rounded px-2 py-1">
-              <input type="text" name="subsection" placeholder="Subsection (optional)" class="w-full border rounded px-2 py-1">
-              <input type="number" step="0.01" name="price" placeholder="Price" required class="w-full border rounded px-2 py-1">
-              <input type="text" name="imageUrl" placeholder="Image URL" class="w-full border rounded px-2 py-1">
-              <input type="number" name="qty" placeholder="Quantity" class="w-full border rounded px-2 py-1">
-              <button type="submit" class="w-full bg-green-500 text-white rounded py-2 hover:bg-green-600 transition">
-                Add Food Item
-              </button>
-            </form>
-            <hr class="my-6">
-            <h3 class="text-xl font-semibold text-green-600 mb-4">Bulk Upload (.csv)</h3>
-            <form action="/csvtodata/upload-fooditems-csv" method="POST" enctype="multipart/form-data">
-              <input type="file" name="csvFile" accept=".csv" required class="w-full border rounded px-2 py-1 mb-3">
-              <button type="submit" class="w-full bg-blue-500 text-white rounded py-2 hover:bg-blue-600 transition">
-                Upload CSV
-              </button>
-            </form>
-          </section>
-
-          <!-- UPI Management Panel -->
-          <section class="bg-white rounded shadow p-6">
-            <h3 class="text-xl font-semibold text-green-600 mb-4">Manage UPI IDs</h3>
-            <ul class="mb-4 space-y-2">
-              <% upiIds.forEach(upi => { %>
-                <li class="flex justify-between items-center border-b pb-2">
-                  <span>
-                    <%= upi.upiId %> 
-                    <% if(upi.active) { %>
-                      <span class="text-green-600 font-bold">(Active)</span>
-                    <% } %>
-                  </span>
-                  <div class="flex gap-2">
-                    <% if(!upi.active) { %>
-                      <form action="/dashboard/set-active-upi" method="POST">
-                        <input type="hidden" name="upiRecordId" value="<%= upi._id %>">
-                        <button type="submit" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">Make Active</button>
-                      </form>
-                    <% } %>
-                    <form action="/dashboard/delete-upi" method="POST" onsubmit="return confirm('Are you sure you want to delete this UPI?');">
+        <!-- UPI Management -->
+        <section class="bg-white p-6 rounded shadow">
+          <h2 class="text-xl font-semibold text-green-600 mb-4">Manage UPI IDs</h2>
+          <ul class="space-y-3 mb-4">
+            <% upiIds.forEach(upi => { %>
+              <li class="flex justify-between items-center border-b pb-2">
+                <span>
+                  <%= upi.upiId %>
+                  <% if (upi.active) { %>
+                    <span class="text-green-600 font-bold">(Active)</span>
+                  <% } %>
+                </span>
+                <div class="flex gap-2">
+                  <% if (!upi.active) { %>
+                    <form action="/dashboard/set-active-upi" method="POST">
                       <input type="hidden" name="upiRecordId" value="<%= upi._id %>">
-                      <button type="submit" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition">Delete</button>
+                      <button type="submit" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">Make Active</button>
                     </form>
-                  </div>
-                </li>
-              <% }) %>
-            </ul>
-            <form action="/dashboard/add-upi" method="POST" class="space-y-4">
-              <input type="text" name="upiId" placeholder="Enter UPI ID" required class="w-full border rounded px-2 py-1">
-              <button type="submit" class="w-full bg-green-500 text-white rounded py-2 hover:bg-green-600 transition">
-                Add UPI ID (Active)
-              </button>
-            </form>
-          </section>
-        </div>
+                  <% } %>
+                  <form action="/dashboard/delete-upi" method="POST" onsubmit="return confirm('Are you sure you want to delete this UPI?');">
+                    <input type="hidden" name="upiRecordId" value="<%= upi._id %>">
+                    <button type="submit" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition">Delete</button>
+                  </form>
+                </div>
+              </li>
+            <% }) %>
+          </ul>
+          <form action="/dashboard/add-upi" method="POST" class="space-y-3">
+            <input type="text" name="upiId" placeholder="Enter UPI ID" required class="w-full border rounded px-3 py-2">
+            <button type="submit" class="w-full bg-green-500 text-white rounded py-2 hover:bg-green-600 transition">
+              Add UPI ID (Active)
+            </button>
+          </form>
+        </section>
+
       </div>
-    </div>
+    </main>
   </div>
 </body>
 </html>

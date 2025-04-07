@@ -6,6 +6,8 @@ const Order = require('../models/Order');
 const FoodItem = require('../models/FoodItem');
 const User = require('../models/User');
 const Upi = require('../models/Upi');
+const moment = require('moment');
+
 
 // --- Login Routes ---
 // Render login page
@@ -85,7 +87,84 @@ router.get('/', async (req, res) => {
   });
 });
 
-    
+// Analytics page
+router.get('/analytics', async (req, res) => {
+  if (!req.session.user) 
+    return res.redirect('/dashboard/login');
+
+  // 1. parse date from query (default = today)
+  const dateParam = req.query.date;
+  const date = dateParam
+    ? moment(dateParam, 'YYYY-MM-DD')
+    : moment();
+
+  // 2. build start/end of that day
+  const start = date.clone().startOf('day').toDate();
+  const end   = date.clone().endOf('day').toDate();
+
+  // 3. Total revenue overall (Paid only)
+  const totalAgg = await Order.aggregate([
+    { $match: { status: 'Paid', createdAt: { $gte: start, $lte: end } } },
+    { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+  ]);
+  const totalRevenue = totalAgg[0]?.total || 0;
+
+  // 4. Revenue by paymentMode
+  const byModeAgg = await Order.aggregate([
+    { $match: { status: 'Paid', createdAt: { $gte: start, $lte: end } } },
+    { $group: { _id: '$paymentMode', revenue: { $sum: '$totalAmount' } } }
+  ]);
+  const revenueByMode = byModeAgg.reduce((acc, cur) => {
+    acc[cur._id] = cur.revenue;
+    return acc;
+  }, { Cash: 0, UPI: 0 });
+
+  // 5. UPI revenue per UPI ID, sorted desc
+  const byUpiIdAgg = await Order.aggregate([
+    { $match: { status: 'Paid', paymentMode: 'UPI', createdAt: { $gte: start, $lte: end } } },
+    { $group: { _id: '$upiId', revenue: { $sum: '$totalAmount' } } },
+    { $sort: { revenue: -1 } }
+  ]);
+
+  // 6. Low stock items (< 10)
+  const lowStockItems = await FoodItem.find({ qty: { $lt: 10 } })
+    .select('name qty price section')
+    .lean();
+
+  // 7. Build previous/next dates for nav
+  const prevDate    = date.clone().subtract(1, 'day').format('YYYY-MM-DD');
+  const nextDate    = date.clone().add(1, 'day').format('YYYY-MM-DD');
+  const displayDate = date.format('DD MMM, YYYY');
+
+  // 8. Render
+  res.render('analytics', {
+    user: req.session.user,
+    totalRevenue,
+    revenueByMode,
+    upiById:       byUpiIdAgg,
+    lowStockItems,
+    prevDate,
+    nextDate,
+    displayDate,
+    // for sidebar highlighting (you can leave empty or pass real data)
+    sections:    await FoodItem.distinct('section'),
+    foodItems:   [],
+    activeUpi:   null
+  });
+});
+
+router.put('/dashboard/fooditem/:id', async (req, res) => {
+  if (!req.session.user) return res.status(401).json({ success: false, message: 'Unauthorized' });
+  const { id } = req.params;
+  const { qty } = req.body;
+  try {
+    await FoodItem.findByIdAndUpdate(id, { qty });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.json({ success: false, message: 'Could not update qty' });
+  }
+});
 
 // GET Settings Page - render settings view with UPI IDs
 router.get('/settings', async (req, res) => {
