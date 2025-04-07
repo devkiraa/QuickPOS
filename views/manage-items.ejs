@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manage Items – Canteen POS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #f0fdf4; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { padding: 0.75rem; text-align: left; }
+    th { background-color: #d1fae5; }
+    tr:nth-child(even) { background-color: #ecfdf5; }
+  </style>
+</head>
+<body class="flex min-h-screen">
+  <!-- Sidebar (copy from your other pages) -->
+  <aside class="w-64 bg-white shadow flex flex-col">
+    <div class="p-6">
+      <h2 class="text-2xl font-bold text-green-600">Canteen Logo</h2>
+    </div>
+    <nav class="flex-1">
+      <ul>
+        <li><a href="/dashboard"        class="block py-3 px-6 hover:bg-gray-50">Home</a></li>
+        <li><a href="/orders/list"      class="block py-3 px-6 hover:bg-gray-50">Order List</a></li>
+        <li><a href="/orders/online"    class="block py-3 px-6 hover:bg-gray-50">Online Orders</a></li>
+        <li><a href="/dashboard/settings" class="block py-3 px-6 hover:bg-gray-50">Settings</a></li>
+        <li><a href="/dashboard/manage-items" class="block py-3 px-6 text-green-600 font-semibold">Manage Items</a></li>
+      </ul>
+    </nav>
+    <div class="p-6 border-t">
+      <div class="flex items-center">
+        <span class="text-green-600 font-semibold"><%= user.username %></span>
+        <a href="/dashboard/logout" class="ml-auto text-red-500 hover:underline">Logout</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main panel -->
+  <div class="flex-1 flex flex-col">
+    <!-- Header -->
+    <header class="bg-white shadow p-4">
+      <h1 class="text-xl font-semibold text-gray-800">Manage Food Items</h1>
+    </header>
+
+    <main class="p-6 overflow-auto">
+        <!-- Search bar -->
+        <div class="mb-4 flex items-center justify-between">
+          <input type="text" id="searchInput" placeholder="Search item name..." 
+                 class="w-1/3 px-4 py-2 border rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-green-400">
+        </div>
+      
+        <div class="overflow-x-auto">
+          <table id="itemsTable">
+            <thead>
+              <tr>
+                <th class="w-1/12">Image</th>
+                <th class="w-3/12">Name</th>
+                <th class="w-2/12">Section</th>
+                <th class="w-2/12">Price (₹)</th>
+                <th class="w-1/12">Qty</th>
+                <th class="w-3/12">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% foodItems.forEach(item => { %>
+                <tr>
+                  <td>
+                    <img src="<%= item.imageUrl || 'https://via.placeholder.com/40' %>" 
+                         alt="<%= item.name %>" class="h-10 w-10 object-cover rounded" />
+                  </td>
+                  <form action="/dashboard/update-item" method="POST" class="contents">
+                    <input type="hidden" name="itemId" value="<%= item._id %>">
+                    <td>
+                      <input type="text" name="name" value="<%= item.name %>" 
+                             class="w-full border rounded px-2 py-1 text-sm" required>
+                    </td>
+                    <td>
+                      <input type="text" name="section" value="<%= item.section %>" 
+                             class="w-full border rounded px-2 py-1 text-sm" required>
+                    </td>
+                    <td>
+                      <input type="number" step="0.01" name="price" value="<%= item.price %>" 
+                             class="w-full border rounded px-2 py-1 text-sm" required>
+                    </td>
+                    <td>
+                      <input type="number" name="qty" value="<%= item.qty || 0 %>" 
+                             class="w-full border rounded px-2 py-1 text-sm" required>
+                    </td>
+                    <td class="space-x-2">
+                      <button type="submit" 
+                              class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">
+                        Save
+                      </button>
+                  </form>
+                  <form action="/dashboard/delete-item" method="POST" class="inline">
+                    <input type="hidden" name="itemId" value="<%= item._id %>">
+                    <button type="submit" 
+                            class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
+                            onclick="return confirm('Remove “<%= item.name %>”?');">
+                      Delete
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </main>      
+  </div>
+  <script>
+    const searchInput = document.getElementById('searchInput');
+    const table = document.getElementById('itemsTable').getElementsByTagName('tbody')[0];
+  
+    searchInput.addEventListener('input', function () {
+      const filter = searchInput.value.toLowerCase();
+      const rows = table.getElementsByTagName('tr');
+      
+      Array.from(rows).forEach(row => {
+        const nameCell = row.querySelector('input[name="name"]');
+        const itemName = nameCell ? nameCell.value.toLowerCase() : '';
+        row.style.display = itemName.includes(filter) ? '' : 'none';
+      });
+    });
+  </script>  
+</body>
+</html>

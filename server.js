@@ -17,6 +17,7 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const upiTransactionRoutes = require('./routes/upiTransactionRoutes');
 const csvtodataRoutes = require('./routes/csvtodata');
 const apiRoutes = require('./routes/apiRoutes');
+const kitchenRoutes = require('./routes/kitchenRoutes');
 
 const app = express();
 
@@ -82,6 +83,7 @@ app.use('/dashboard', dashboardRoutes);
 app.use('/upi-transactions', upiTransactionRoutes);
 app.use('/csvtodata', csvtodataRoutes);
 app.use('/api', apiRoutes); // Mount API routes under /api.
+app.use('/kitchen', kitchenRoutes);
 
 // Home page (for demo, you can change it).
 app.get('/', (req, res) => {

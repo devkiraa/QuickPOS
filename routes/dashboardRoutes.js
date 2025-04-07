@@ -82,6 +82,69 @@ router.post('/add-fooditem', async (req, res) => {
   res.redirect('/dashboard');
 });
 
+// GET: show manage‑items page
+router.get('/manage-items', async (req, res) => {
+  if (!req.session.user) return res.redirect('/dashboard/login');
+  const foodItems = await FoodItem.find({}).exec();
+  res.render('manage-items', {
+    user: req.session.user,
+    foodItems
+  });
+});
+
+// POST: update an existing item
+router.post('/update-item', async (req, res) => {
+  const { itemId, name, section, price, qty } = req.body;
+  try {
+    await FoodItem.findByIdAndUpdate(itemId, {
+      name,
+      section,
+      price: parseFloat(price),
+      qty: parseInt(qty, 10)
+    });
+    res.redirect('/dashboard/manage-items');
+  } catch (err) {
+    console.error('Update item error:', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// POST: delete an item
+router.post('/delete-item', async (req, res) => {
+  const { itemId } = req.body;
+  try {
+    await FoodItem.findByIdAndDelete(itemId);
+    res.redirect('/dashboard/manage-items');
+  } catch (err) {
+    console.error('Delete item error:', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// View all paid orders in kitchen
+router.get('/kitchen/orders', async (req, res) => {
+  let orders = await Order.find({ status: 'Paid' })
+    .populate('items.foodItem')
+    .sort({ createdAt: -1 });
+
+  // Create orderData fallback using populated data
+  orders = orders.map(order => {
+    const fallbackData = {};
+    order.items.forEach(item => {
+      const foodId = item.foodItem?._id?.toString?.() || item.foodItem?.toString?.();
+      if (item.foodItem?.name) {
+        fallbackData[foodId] = { name: item.foodItem.name };
+      }
+    });
+
+    // Inject fallbackData into each order for use in EJS
+    order.orderData = fallbackData;
+    return order;
+  });
+
+  res.render('kitchen-orders', { orders });
+});
+
 // Endpoint to add a new UPI ID and set it active (first deactivate any active UPI)
 router.post('/add-upi', async (req, res) => {
   const { upiId } = req.body;
@@ -98,6 +161,18 @@ router.post('/set-active-upi', async (req, res) => {
   const { upiRecordId } = req.body;
   await Upi.updateMany({ active: true }, { $set: { active: false } });
   await Upi.findByIdAndUpdate(upiRecordId, { active: true });
+  res.redirect('/dashboard');
+});
+
+router.post('/delete-upi', async (req, res) => {
+  const { upiRecordId } = req.body;
+  const upi = await Upi.findById(upiRecordId);
+
+  if (upi.active) {
+    return res.status(400).send('Cannot delete the active UPI ID');
+  }
+
+  await Upi.findByIdAndDelete(upiRecordId);
   res.redirect('/dashboard');
 });
 

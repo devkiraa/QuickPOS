@@ -1,8 +1,7 @@
-// models/Order.js
 const mongoose = require('mongoose');
 
 const OrderSchema = new mongoose.Schema({
-  orderId: { type: String, required: true, index: true },  // UUID or "#12345"
+  orderId: { type: String, required: true, index: true },
   orderNumber: { type: Number, index: true },
   customerName: { type: String, required: true },
   mobile: { type: String, required: true, index: true },
@@ -12,11 +11,16 @@ const OrderSchema = new mongoose.Schema({
       quantity: { type: Number, default: 1 }
     }
   ],
-  orderData: { type: mongoose.Schema.Types.Mixed }, // additional POS data
   paymentMode: { type: String, enum: ['Cash', 'UPI'] },
   upiId: { type: String },
   totalAmount: { type: Number },
-  status: { type: String, default: 'Pending', index: true },
+  status: { type: String, default: 'Pending', index: true }, // payment status
+  order_status: {
+    type: String,
+    enum: ['Preparing', 'Order Completed', 'Out of Stock'],
+    default: 'Preparing',
+    index: true
+  },
   orderSource: { type: String, enum: ['counter', 'online'] },
   createdAt: { type: Date, default: Date.now, index: true }
 }, { timestamps: true });

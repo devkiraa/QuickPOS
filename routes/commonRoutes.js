@@ -240,7 +240,7 @@ router.post("/complete-payment", async (req, res) => {
 
     // If payment was made using UPI, update the UPI transaction record(s).
     if (paymentMode === "UPI") {
-      // const UpiTransaction = require('../models/UpiTransaction'); // Already required above
+      const UpiTransaction = require('../models/UpiTransaction'); // Already required above
       const updateResult = await UpiTransaction.updateMany(
         { orderId: orderId }, // Find transaction(s) by orderId
         { $set: { status: "Paid" } } // Set status to Paid
