@@ -51,20 +51,40 @@ router.post('/signup', async (req, res) => {
 });
 
 router.get('/', async (req, res) => {
-    if (!req.session.user) return res.redirect('/dashboard/login');
-    const orders = await Order.find({ status: 'Pending' }).populate('items.foodItem').exec();
-    const foodItems = await FoodItem.find({}).exec();
-    const upiIds = await Upi.find({}).exec();
-    const sections = await FoodItem.distinct("section");
-    const activeUpi = await Upi.findOne({ active: true });  // Fetch the active UPI
-  
-    let selectedItems = [];
-    if (orders.length > 0) {
-      selectedItems = orders[0].items; // or choose a specific order
+  if (!req.session.user) return res.redirect('/dashboard/login');
+
+  // Fetch pending orders
+  const orders = await Order.find({ status: 'Pending' })
+    .populate('items.foodItem')
+    .exec();
+
+  // Sum totals
+  const allTotals = orders.reduce((acc, o) => {
+    acc.total += o.totalAmount || 0;
+    if (o.paymentMode === 'UPI') acc.upi += o.totalAmount || 0;
+    else if (o.paymentMode === 'Cash') acc.cash += o.totalAmount || 0;
+    return acc;
+  }, { total: 0, upi: 0, cash: 0 });
+
+  // Other data for rendering
+  const foodItems  = await FoodItem.find().exec();
+  const sections   = await FoodItem.distinct('section');
+  const activeUpi  = await Upi.findOne({ active: true });
+
+  res.render('dashboard', {
+    user: req.session.user,
+    orders,
+    foodItems,
+    sections,
+    activeUpi,
+    revenue: {
+      total: allTotals.total,
+      upi:   allTotals.upi,
+      cash:  allTotals.cash
     }
-    
-    res.render('dashboard', { orders, foodItems, upiIds, user: req.session.user, selectedItems, sections, activeUpi });
   });
+});
+
     
 
 // GET Settings Page - render settings view with UPI IDs

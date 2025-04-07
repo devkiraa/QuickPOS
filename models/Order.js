@@ -15,7 +15,7 @@ const OrderSchema = new mongoose.Schema({
   upiId: { type: String },
   totalAmount: { type: Number },
   status: { type: String, default: 'Pending', index: true }, // payment status
-  order_status: {
+  order_status: {//its for the order status like if the item is serverd or something
     type: String,
     enum: ['Preparing', 'Order Completed', 'Out of Stock'],
     default: 'Preparing',

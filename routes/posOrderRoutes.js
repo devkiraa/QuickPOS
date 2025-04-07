@@ -22,8 +22,10 @@ router.post("/place-pos", async (req, res) => {
   session.startTransaction();
 
   try {
-    const { paymentMode, upiId, orderItems, orderSource } = req.body;
-
+    const { paymentMode, upiId, orderItems, orderSource,customerName,mobile } = req.body;
+    if (!customerName || !mobile) {
+     throw new Error("Customer name and mobile are required");
+    }
     // 1) Determine orderId and orderNumber
     let orderId, orderNumber;
     if (orderSource === "counter") {
@@ -98,14 +100,14 @@ router.post("/place-pos", async (req, res) => {
     const newOrder = new Order({
       orderId,
       orderNumber,
-      customerName: "POS Customer",
-      mobile: "N/A",
+      customerName,
+      mobile,
       items: itemsArray,
       paymentMode: finalPaymentMode,
       upiId: finalPaymentMode === "UPI" ? finalUpiId : "",
       totalAmount,
       status: finalPaymentMode === "Cash" ? "Paid" : "Pending",
-      order_status: finalPaymentMode === "Cash" ? "Preparing" : "Pending",
+      order_status: "Preparing",
       orderSource: orderSource || "counter",
     });
     await newOrder.save({ session });
