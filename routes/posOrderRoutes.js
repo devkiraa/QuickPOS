@@ -5,6 +5,7 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
 const Order = require("../models/Order");
+const FoodItem = require("../models/FoodItem");
 const Upi = require("../models/Upi");
 const {
   generateNextOrderNumber,
@@ -13,9 +14,13 @@ const {
 
 /**
  * POST /place-pos
- * Processes POS orders coming from either the counter or online POS channels.
+ * Processes POS orders coming from either the counter or online POS channels,
+ * validates & decrements stock, and optionally initiates UPI.
  */
 router.post("/place-pos", async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { paymentMode, upiId, orderItems, orderSource } = req.body;
 
@@ -37,49 +42,59 @@ router.post("/place-pos", async (req, res) => {
           ? JSON.parse(orderItems)
           : orderItems;
     } catch (e) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid JSON for order items" });
+      throw new Error("Invalid JSON for order items");
     }
-
-    // Turn object-of-objects or array into [{ id, price, quantity }, …]
     const itemsData = Array.isArray(parsed)
       ? parsed
       : Object.entries(parsed).map(([id, item]) => ({ id, ...item }));
 
-    // 3) Build items array and compute total
-    const itemsArray = [];
-    let totalAmount = 0;
+    if (itemsData.length === 0) {
+      throw new Error("No items in the order");
+    }
+
+    // 3) Fetch current stock & validate
+    const ids = itemsData.map(i => i.id);
+    const foods = await FoodItem.find({ _id: { $in: ids } }).session(session);
+    const stockMap = foods.reduce((m, f) => {
+      m[f._id.toString()] = f.qty;
+      return m;
+    }, {});
 
     for (const item of itemsData) {
-      if (!item.id || item.quantity == null || item.price == null) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Each item must have id, price, quantity" });
+      if (!stockMap[item.id]) {
+        throw new Error(`Item ${item.id} not found or out of stock`);
       }
+      if (stockMap[item.id] < item.quantity) {
+        throw new Error(
+          `Insufficient stock for item ${item.id}: have ${stockMap[item.id]}, need ${item.quantity}`
+        );
+      }
+    }
+
+    // 4) Build items array and compute total
+    const itemsArray = [];
+    let totalAmount = 0;
+    for (const item of itemsData) {
       totalAmount += item.price * item.quantity;
       itemsArray.push({
-        // <-- use `new` here:
         foodItem: new mongoose.Types.ObjectId(item.id),
         quantity: item.quantity,
       });
     }
 
-    // 4) Resolve UPI defaults
+    // 5) Resolve UPI defaults
     let finalPaymentMode =
       orderSource === "counter" && !paymentMode ? "Cash" : paymentMode;
     let finalUpiId = upiId;
     if (finalPaymentMode === "UPI" && !finalUpiId) {
-      const active = await Upi.findOne({ active: true });
+      const active = await Upi.findOne({ active: true }).session(session);
       if (!active?.upiId) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Active UPI account not set." });
+        throw new Error("Active UPI account not set.");
       }
       finalUpiId = active.upiId;
     }
 
-    // 5) Create & save order
+    // 6) Create & save order
     const newOrder = new Order({
       orderId,
       orderNumber,
@@ -93,9 +108,18 @@ router.post("/place-pos", async (req, res) => {
       order_status: finalPaymentMode === "Cash" ? "Preparing" : "Pending",
       orderSource: orderSource || "counter",
     });
-    await newOrder.save();
+    await newOrder.save({ session });
 
-    // 6) Kick off UPI transaction if needed
+    // 7) Decrement stock
+    const bulkOps = itemsData.map(item => ({
+      updateOne: {
+        filter: { _id: item.id },
+        update: { $inc: { qty: -item.quantity } }
+      }
+    }));
+    await FoodItem.bulkWrite(bulkOps, { session });
+
+    // 8) Kick off UPI transaction if needed
     if (finalPaymentMode === "UPI") {
       await createUpiTransaction(
         orderId,
@@ -105,13 +129,21 @@ router.post("/place-pos", async (req, res) => {
       );
     }
 
-    // 7) Respond
+    // 9) Commit
+    await session.commitTransaction();
+    session.endSession();
+
+    // 10) Respond
     res.json({ success: true, orderId, orderNumber });
   } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
     console.error("Error in place-pos endpoint:", err);
-    res.status(500).json({
+    res.status(400).json({
       success: false,
-      message: "Error placing POS order: " + err.message,
+      message: err.message.startsWith("Insufficient")
+        ? err.message
+        : "Error placing POS order: " + err.message,
     });
   }
 });

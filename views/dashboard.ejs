@@ -125,12 +125,24 @@
               <div class="bg-white rounded-lg shadow-sm overflow-hidden food-card" data-section="<%= item.section %>">
                 <img src="<%= item.imageUrl %>" alt="<%= item.name %>" class="w-full h-32 object-cover" />
                 <div class="p-2">
-                  <h3 class="text-sm font-semibold text-gray-700"><%= item.name %></h3>
+                  <h3 class="flex justify-between items-center text-sm font-semibold text-gray-700">
+                    <span><%= item.name %></span>
+                    <span class="text-xs text-gray-500">Stock: <%= item.qty %></span>
+                  </h3>
                   <p class="text-xs text-gray-600">₹<%= item.price %></p>
-                  <button onclick="addToOrder('<%= item._id %>', '<%= item.name %>', '<%= item.price %>')" class="mt-2 w-full bg-green-500 text-white text-xs py-1 rounded hover:bg-green-600 transition">ADD</button>
+                  <button
+                    onclick="addToOrder('<%= item._id %>', '<%= item.name %>', '<%= item.price %>')"
+                    class="mt-2 w-full text-xs py-1 rounded transition
+                      <%= item.qty > 0 
+                          ? 'bg-green-500 text-white hover:bg-green-600' 
+                          : 'bg-gray-300 text-gray-600 cursor-not-allowed' %>"
+                    <%= item.qty > 0 ? '' : 'disabled' %>
+                  >
+                    <%= item.qty > 0 ? 'ADD' : 'Out of Stock' %>
+                  </button>
                 </div>
               </div>
-            <% }) %>
+            <% }) %>            
           </div>
         </main>
 
