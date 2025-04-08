@@ -182,17 +182,16 @@ router.post("/initiate-upi", async (req, res) => {
     const upiUri = `upi://pay?pa=${upiId}&am=${formattedAmount}&cu=INR&tn=${tn}`;
     console.log("Generated UPI URI:", upiUri);
 
-    // Generate the QR code as a Base64 PNG
+    // Generate the QR code as a Base64 PNG image for display purposes
     const dataUrl = await QRCode.toDataURL(upiUri);
-    // Remove the data URL prefix so that only the Base64 string remains.
-    const base64 = dataUrl.split(",")[1];
-    console.log("Generated QR code (Base64):", base64 ? "exists" : "missing");
+    const base64Image = dataUrl.split(",")[1]; // Extract only the base64 string for the image
+    console.log("Generated QR code image (Base64):", base64Image ? "exists" : "missing");
 
-    // Create a new UPI transaction record
+    // Create a new UPI transaction record storing the UPI URI, not the Base64 image.
     const newTransaction = new UpiTransaction({
       orderId,
       upiId,
-      qrCode: base64,
+      qrCode: upiUri, // Store the UPI URI in the DB
       status: "Pending",
     });
     await newTransaction.save();
@@ -210,9 +209,10 @@ router.post("/initiate-upi", async (req, res) => {
       console.warn("Order not found for orderId:", orderId);
     }
 
-    res.json({ success: true, qrCode: base64 });
+    // Return the generated Base64 image (for client display) in the response.
+    res.json({ success: true, qrCode: base64Image });
   } catch (err) {
-    console.error("Error in /orders/initiate-upi:", err);
+    console.error("Error in /initiate-upi:", err);
     res.status(500).json({
       success: false,
       message: "Error initiating UPI transaction: " + err.message,
