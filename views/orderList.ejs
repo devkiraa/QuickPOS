@@ -222,36 +222,45 @@
     }
 
     // ========================
-    // CSV Export (Excluding Actions Column) using full data from allOrders
-    // ========================
-    function exportTableToCSV(filename) {
-      const csv = [];
-      // Header row
-      const header = ['No', 'Ref Number', 'Customer', 'Mobile', 'Total', 'Status', 'Date & Time'];
-      csv.push(header.join(","));
-      
-      // Loop over allOrders (full data)
-      allOrders.forEach((order, index) => {
-        const row = [];
-        row.push(index + 1);
-        row.push(order.orderNumber);
-        row.push(order.customerName);
-        row.push(order.mobile);
-        // Remove the rupee symbol and use number value
-        row.push(order.totalAmount);
-        row.push(order.status);
-        row.push(new Date(order.createdAt).toLocaleString());
-        csv.push(row.join(","));
-      });
-      
-      const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
-      const downloadLink = document.createElement("a");
-      downloadLink.download = filename;
-      downloadLink.href = window.URL.createObjectURL(csvFile);
-      downloadLink.style.display = "none";
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-    }
+// CSV Export (Excluding Actions Column) using full data from allOrders
+// ========================
+function exportTableToCSV(filename) {
+  const csv = [];
+  // Header row with additional columns for Payment Mode and UPI ID
+  const header = ['No', 'Ref Number', 'Customer', 'Mobile', 'Total', 'Status', 'Payment Mode', 'UPI ID', 'Date & Time'];
+  csv.push(header.join(","));
+  
+  // Loop over allOrders (full data)
+  allOrders.forEach((order, index) => {
+    const row = [];
+    row.push(index + 1);
+    row.push(order.orderNumber);
+    row.push(order.customerName);
+    row.push(order.mobile);
+    // Use numeric value for the total (remove rupee symbol if present)
+    row.push(order.totalAmount);
+    row.push(order.status);
+    
+    // Add Payment Mode field (e.g., Cash or UPI)
+    row.push(order.paymentMode);
+    
+    // Check if payment mode is UPI then include the UPI ID, otherwise leave blank
+    row.push(order.paymentMode === "UPI" ? order.upiId : "");
+    
+    row.push(new Date(order.createdAt).toLocaleString());
+    csv.push(row.join(","));
+  });
+  
+  // Create a blob from CSV data and download it
+  const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+  const downloadLink = document.createElement("a");
+  downloadLink.download = filename;
+  downloadLink.href = window.URL.createObjectURL(csvFile);
+  downloadLink.style.display = "none";
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+}
+
 
     // ========================
     // Date Filter Functionality
