@@ -9,6 +9,8 @@ const session = require('express-session');
 const os = require('os');
 const pidusage = require('pidusage');
 const si = require('systeminformation'); // For system-wide metrics
+const cron = require('node-cron');
+const Order = require('./models/Order');
 
 const onlineOrderRoutes = require("./routes/onlineOrderRoutes");
 const posOrderRoutes = require("./routes/posOrderRoutes");
@@ -88,6 +90,27 @@ app.use('/kitchen', kitchenRoutes);
 // Home page (for demo, you can change it).
 app.get('/', (req, res) => {
   res.redirect('/orders/new');
+});
+
+cron.schedule('*/1 * * * *', async () => { // runs every 2 minutes
+  try {
+    const cutoff = new Date(Date.now() - 7 * 60 * 1000); // 7 minutes ago
+
+    const result = await Order.deleteMany({
+      status: 'Pending',
+      order_status: 'Preparing',
+      orderSource: 'online',
+      totalAmount: 0,
+      items: { $size: 0 },
+      createdAt: { $lt: cutoff }
+    });
+
+    if (result.deletedCount > 0) {
+      console.log(`[${new Date().toLocaleString()}] Auto-cleaned ${result.deletedCount} stale online orders.`);
+    }
+  } catch (err) {
+    console.error('Auto-cleanup error:', err);
+  }
 });
 
 // Start server.

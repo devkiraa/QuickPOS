@@ -157,6 +157,26 @@ router.delete("/delete/:orderId", async (req, res) => {
   }
 });
 
+// This will remove orders with empty items, totalAmount: 0, older than 7 minutes
+router.delete('/cleanup/online-orders', async (req, res) => {
+  try {
+    const cutoff = new Date(Date.now() - 7 * 60 * 1000); // 7 minutes ago
+
+    const result = await Order.deleteMany({
+      status: 'Pending',
+      order_status: 'Preparing',
+      orderSource: 'online',
+      totalAmount: 0,
+      items: { $size: 0 },
+      createdAt: { $lt: cutoff }
+    });
+
+    res.json({ success: true, deletedCount: result.deletedCount });
+  } catch (err) {
+    console.error('Cleanup failed:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 /**
  * POST /orders/initiate-upi
  * Initiates the UPI payment process for an order. It generates the UPI URI,
