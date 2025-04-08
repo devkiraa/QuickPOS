@@ -52,11 +52,22 @@
     <!-- Main Content -->
     <div class="flex-1 p-6">
       <h1 class="text-3xl font-bold text-green-600 mb-6 text-center">Online Orders</h1>
-      <table class="min-w-full bg-white rounded-lg shadow overflow-hidden">
+      
+      <% 
+        // Filter orders that have a non-zero total amount.
+        const validOrders = orders.filter(order => order.totalAmount > 0);
+        const unpaidOrders = validOrders.filter(order => order.status === "Pending");
+        const paidOrders = validOrders.filter(order => order.status !== "Pending");
+      %>
+      
+      <!-- Unpaid Orders Section -->
+      <h2 class="text-2xl font-bold text-green-600 mb-4">Unpaid Orders</h2>
+      <% if(unpaidOrders.length) { %>
+      <table class="min-w-full bg-white rounded-lg shadow overflow-hidden mb-8">
         <thead class="bg-green-500 text-white">
           <tr>
             <th class="py-3 px-4">Ref Number</th>
-            <th class="py-3 px-4">Order ID</th>
+            <th class="py-3 px-4">Order Number</th>
             <th class="py-3 px-4">Customer</th>
             <th class="py-3 px-4">Mobile</th>
             <th class="py-3 px-4">Total (₹)</th>
@@ -65,38 +76,70 @@
           </tr>
         </thead>
         <tbody>
-          <% orders.forEach(order => { %>
+          <% unpaidOrders.forEach(order => { %>
           <tr class="border-b">
             <td class="py-2 px-4 text-center font-semibold"><%= order.orderNumber %></td>
-            <td class="py-2 px-4 text-center"><%= order.orderId %></td>
+            <!-- Use Order Number in place of Order ID -->
+            <td class="py-2 px-4 text-center"><%= order.orderNumber %></td>
             <td class="py-2 px-4"><%= order.customerName %></td>
             <td class="py-2 px-4"><%= order.mobile %></td>
             <td class="py-2 px-4 text-right font-semibold">₹<%= order.totalAmount.toFixed(2) %></td>
             <td class="py-2 px-4 text-center"><%= order.status %></td>
             <td class="py-2 px-4 text-center">
-              <% if (order.status === "Pending") { %>
-                <button onclick="openPaymentModal('<%= order.orderId %>', <%= order.totalAmount %>)"
-                        class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
-                  Continue Order
-                </button>
-              <% } else { %>
-                <span class="text-green-600 font-bold">Paid</span>
-              <% } %>
-            </td>
-          </tr>
-          <tr class="bg-gray-50">
-            <td colspan="7" class="py-2 px-4">
-              <strong>Items:</strong>
-              <ul class="list-disc list-inside">
-                <% order.items.forEach(item => { %>
-                  <li><%= item.foodItem?.name || "Item" %> — Qty: <%= item.quantity %></li>
-                <% }) %>
-              </ul>
+              <button onclick="openPaymentModal('<%= order.orderNumber %>', <%= order.totalAmount %>)"
+                      class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
+                Continue Order
+              </button>
+              <button onclick='viewItems("<%= order.orderNumber %>", <%- JSON.stringify(order.items) %>)'
+                      class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded ml-2">
+                View Items
+              </button>
             </td>
           </tr>
           <% }) %>
         </tbody>
       </table>
+      <% } else { %>
+        <p class="text-center text-gray-600 mb-8">No unpaid orders found.</p>
+      <% } %>
+      
+      <!-- Paid Orders Section -->
+      <h2 class="text-2xl font-bold text-green-600 mb-4">Paid Orders</h2>
+      <% if(paidOrders.length) { %>
+      <table class="min-w-full bg-white rounded-lg shadow overflow-hidden">
+        <thead class="bg-green-500 text-white">
+          <tr>
+            <th class="py-3 px-4">Ref Number</th>
+            <th class="py-3 px-4">Order Number</th>
+            <th class="py-3 px-4">Customer</th>
+            <th class="py-3 px-4">Mobile</th>
+            <th class="py-3 px-4">Total (₹)</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% paidOrders.forEach(order => { %>
+          <tr class="border-b">
+            <td class="py-2 px-4 text-center font-semibold"><%= order.orderNumber %></td>
+            <td class="py-2 px-4 text-center"><%= order.orderNumber %></td>
+            <td class="py-2 px-4"><%= order.customerName %></td>
+            <td class="py-2 px-4"><%= order.mobile %></td>
+            <td class="py-2 px-4 text-right font-semibold">₹<%= order.totalAmount.toFixed(2) %></td>
+            <td class="py-2 px-4 text-center">Paid</td>
+            <td class="py-2 px-4 text-center">
+              <button onclick='viewItems("<%= order.orderNumber %>", <%- JSON.stringify(order.items) %>)'
+                      class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded">
+                View Items
+              </button>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <% } else { %>
+        <p class="text-center text-gray-600">No paid orders found.</p>
+      <% } %>
     </div>
   </div>
 
@@ -137,16 +180,28 @@
     </div>
   </div>
 
+  <!-- Items Modal -->
+  <div id="itemsModal" class="modal-overlay" role="dialog" aria-modal="true" tabindex="-1">
+    <div class="bg-white p-6 rounded shadow-lg max-w-md w-full">
+      <h2 class="text-xl font-bold mb-4">Order Items - Order <span id="modalOrderNumber"></span></h2>
+      <div id="itemsList"></div>
+      <div class="mt-4 text-right">
+        <button onclick="closeItemsModal()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    let currentOrderId = "";
+    let currentOrderNumber = "";
     let currentAmount = 0;
     const activeUpiId = "<%= (activeUpi && activeUpi.upiId) || '' %>";
 
-    function openPaymentModal(orderId, amount) {
-      currentOrderId = orderId;
+    // Payment Modal functions
+    function openPaymentModal(orderNumber, amount) {
+      currentOrderNumber = orderNumber;
       currentAmount = amount;
       document.getElementById('orderInfo').innerText =
-        `Order ID: ${orderId} | Amount: ₹${amount.toFixed(2)}`;
+        `Order Number: ${orderNumber} | Amount: ₹${amount.toFixed(2)}`;
       // Reset radio buttons and UPI section
       document.querySelector('input[name="paymentMode"][value="Cash"]').checked = true;
       document.getElementById('upiSection').classList.add('hidden');
@@ -169,7 +224,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            orderId: currentOrderId,
+            orderNumber: currentOrderNumber,
             amount: currentAmount,
             upiId: activeUpiId
           })
@@ -192,7 +247,7 @@
 
     function completeOrder() {
       const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
-      const payload = { orderId: currentOrderId, paymentMode };
+      const payload = { orderNumber: currentOrderNumber, paymentMode };
       if (paymentMode === "UPI") payload.upiId = activeUpiId;
 
       fetch("/orders/complete-payment", {
@@ -203,7 +258,7 @@
       .then(r => r.json())
       .then(res => {
         if (res.success) {
-          alert(`Order ${currentOrderId} marked as Paid.`);
+          alert(`Order ${currentOrderNumber} marked as Paid.`);
           closeModal();
           location.reload();
         } else {
@@ -217,12 +272,12 @@
     }
 
     function cancelOrder() {
-      if (!confirm(`Cancel Order ${currentOrderId}?`)) return;
-      fetch(`/orders/delete/${currentOrderId}`, { method: "DELETE" })
+      if (!confirm(`Cancel Order ${currentOrderNumber}?`)) return;
+      fetch(`/orders/delete/${currentOrderNumber}`, { method: "DELETE" })
         .then(r => r.json())
         .then(res => {
           if (res.success) {
-            alert(`Order ${currentOrderId} cancelled.`);
+            alert(`Order ${currentOrderNumber} cancelled.`);
             closeModal();
             location.reload();
           } else {
@@ -252,6 +307,31 @@
           completeOrder();
         }
       }
+    }
+
+    // Items Modal functions
+    function viewItems(orderNumber, items) {
+      document.getElementById('modalOrderNumber').innerText = orderNumber;
+      const itemsList = document.getElementById('itemsList');
+      itemsList.innerHTML = "";
+      if (items && items.length > 0) {
+        const ul = document.createElement('ul');
+        ul.className = "list-disc list-inside";
+        items.forEach(item => {
+          const li = document.createElement('li');
+          // Ensure we display the name from foodItem if available
+          li.innerText = `${(item.foodItem && item.foodItem.name) || "Item"} — Qty: ${item.quantity}`;
+          ul.appendChild(li);
+        });
+        itemsList.appendChild(ul);
+      } else {
+        itemsList.innerHTML = "<p>No items found.</p>";
+      }
+      document.getElementById('itemsModal').style.display = "flex";
+    }
+
+    function closeItemsModal() {
+      document.getElementById('itemsModal').style.display = "none";
     }
   </script>
 </body>
