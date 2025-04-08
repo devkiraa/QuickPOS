@@ -21,13 +21,9 @@
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
 
-  <!-- Layout -->
   <div class="flex h-screen">
-    <!-- Sidebar -->
     <aside class="w-64 bg-white shadow-md hidden md:block">
-      <div class="p-6 text-green-700 text-2xl font-bold">
-        Canteen POS
-      </div>
+      <div class="p-6 text-green-700 text-2xl font-bold">Canteen POS</div>
       <nav class="px-4">
         <a href="/dashboard" class="block py-2 px-3 rounded hover:bg-green-100 font-medium text-gray-700">Dashboard</a>
         <a href="/dashboard/analytics" class="block py-2 px-3 rounded hover:bg-green-100 font-medium text-gray-700">Analytics</a>
@@ -37,16 +33,12 @@
       </nav>
     </aside>
 
-    <!-- Main Content -->
     <main class="flex-1 overflow-y-auto p-6">
       <h1 class="text-2xl font-bold text-green-700 mb-6">Kitchen Orders (Paid)</h1>
 
-      <% 
-        const preparingOrders = orders.filter(o => o.order_status !== 'Order Completed');
-        const completedOrders = orders.filter(o => o.order_status === 'Order Completed');
-      %>
+      <% const preparingOrders = orders.filter(o => o.order_status !== 'Order Completed'); %>
+      <% const completedOrders = orders.filter(o => o.order_status === 'Order Completed'); %>
 
-      <!-- Preparing Orders -->
       <section class="mb-10">
         <h2 class="text-xl font-semibold text-yellow-600 mb-3">Preparing</h2>
         <% if (preparingOrders.length === 0) { %>
@@ -54,13 +46,10 @@
         <% } else { %>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <% preparingOrders.forEach(order => { %>
-              <div class="bg-white shadow rounded p-4 border-l-4 <%= order.order_status === 'Out of Stock' ? 'border-red-500' : 'border-yellow-500' %>">
-                <h2 class="text-lg font-semibold mb-1">
-                  Order #<%= order.orderNumber || order.orderId %>
-                </h2>
-                <p class="text-sm text-gray-700 mb-2">
-                  Customer: <%= order.customerName %> | <%= order.mobile %>
-                </p>
+              <div class="relative bg-white shadow rounded p-4 border-l-4 <%= order.order_status === 'Out of Stock' ? 'border-red-500' : 'border-yellow-500' %>">
+
+                <h2 class="text-lg font-semibold mb-1">Order #<%= order.orderNumber || order.orderId %></h2>
+                <p class="text-sm text-gray-700 mb-2">Customer: <%= order.customerName %> | <%= order.mobile %></p>
                 <ul class="mb-4 text-sm list-disc pl-5">
                   <% order.items.forEach(item => { %>
                     <% if (item.foodItem) { %>
@@ -73,27 +62,32 @@
                 <div class="flex gap-2">
                   <form action="/kitchen/complete" method="POST">
                     <input type="hidden" name="orderId" value="<%= order._id %>" />
-                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">
-                      Mark Completed
-                    </button>
+                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Mark Completed</button>
                   </form>
-                  <form action="/kitchen/out-of-stock" method="POST">
-                    <input type="hidden" name="orderId" value="<%= order._id %>" />
-                    <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
-                      Mark Out of Stock
-                    </button>
-                  </form>
+                  <button onclick="openOutOfStockModal('<%= order._id %>')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Mark Out of Stock</button>
                 </div>
-                <p class="text-xs text-gray-500 mt-2">
-                  Status: <%= order.order_status %>
-                </p>
-              </div>
+                <p class="text-xs text-gray-500 mt-2">Status: <%= order.order_status %></p>
+              </div>              
             <% }) %>
           </div>
         <% } %>
       </section>
+      
 
-      <!-- Completed Orders -->
+      <div id="outOfStockModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 rounded shadow-md w-full max-w-md">
+          <h3 class="text-lg font-bold mb-4 text-red-600">Mark Items Out of Stock</h3>
+          <form id="outOfStockForm" method="POST" action="/kitchen/out-of-stock">
+            <input type="hidden" name="orderId" id="outOfStockOrderId" />
+            <div id="outOfStockItems" class="mb-4 space-y-2"></div>
+            <div class="flex justify-end gap-2">
+              <button type="button" onclick="closeOutOfStockModal()" class="px-3 py-1 bg-gray-200 rounded">Cancel</button>
+              <button type="submit" class="px-3 py-1 bg-red-500 text-white rounded">Submit</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <section>
         <h2 class="text-xl font-semibold text-green-700 mb-3">Completed Orders</h2>
         <% if (completedOrders.length === 0) { %>
@@ -102,25 +96,17 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <% completedOrders.forEach(order => { %>
               <div class="bg-white shadow rounded p-4 border-l-4 border-green-500">
-                <h2 class="text-lg font-semibold mb-1">
-                  Order #<%= order.orderNumber || order.orderId %>
-                </h2>
-                <p class="text-sm text-gray-700 mb-2">
-                  Customer: <%= order.customerName %> | <%= order.mobile %>
-                </p>
+                <h2 class="text-lg font-semibold mb-1">Order #<%= order.orderNumber || order.orderId %></h2>
+                <p class="text-sm text-gray-700 mb-2">Customer: <%= order.customerName %> | <%= order.mobile %></p>
                 <ul class="mb-4 text-sm list-disc pl-5">
                   <% order.items.forEach(item => {
                       const foodId = item.foodItem?._id?.toString() || item.foodItem?.toString();
                       const foodName = item.foodItem?.name || order.orderData?.[foodId]?.name || '[Deleted Item]';
                   %>
-                    <li class="<%= foodName === '[Deleted Item]' ? 'text-red-500' : '' %>">
-                      <%= foodName %> x <%= item.quantity %>
-                    </li>
+                    <li class="<%= foodName === '[Deleted Item]' ? 'text-red-500' : '' %>"><%= foodName %> x <%= item.quantity %></li>
                   <% }) %>
                 </ul>
-                <p class="text-xs text-gray-500 mt-2">
-                  Status: <%= order.order_status %>
-                </p>
+                <p class="text-xs text-gray-500 mt-2">Status: <%= order.order_status %></p>
               </div>
             <% }) %>
           </div>
@@ -128,5 +114,41 @@
       </section>
     </main>
   </div>
+
+  <script>
+    const orders = <%- JSON.stringify(orders) %>;
+
+    function openOutOfStockModal(orderId) {
+      const modal = document.getElementById('outOfStockModal');
+      const orderInput = document.getElementById('outOfStockOrderId');
+      const itemContainer = document.getElementById('outOfStockItems');
+      const order = orders.find(o => o._id === orderId);
+      if (!order) return;
+
+      orderInput.value = orderId;
+      itemContainer.innerHTML = '';
+
+      order.items.forEach(item => {
+        const name = item.foodItem?.name || 'Deleted Item';
+        if (name === 'Deleted Item') return;
+        const label = document.createElement('label');
+        label.className = "flex items-center gap-2";
+        label.innerHTML = `
+          <input type="checkbox" name="outOfStockItems[]" value="${item.foodItem._id}" class="accent-red-500" />
+          <span>${name} × ${item.quantity}</span>
+        `;
+        itemContainer.appendChild(label);
+      });
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeOutOfStockModal() {
+      const modal = document.getElementById('outOfStockModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  </script>
 </body>
 </html>

@@ -112,6 +112,23 @@ cron.schedule('*/1 * * * *', async () => { // runs every 2 minutes
     console.error('Auto-cleanup error:', err);
   }
 });
+app.get('/dashboard/ads', (req, res) => {
+  res.render('ads', { ads }); // assuming 'ads.ejs' is the page filename
+});
+const ads = [
+  {
+    title: '20% Off on Beverages!',
+    description: 'Enjoy a refreshing drink with every order. Limited time offer.',
+    imageUrl: 'https://149367133.v2.pressablecdn.com/wp-content/uploads/2023/09/pubg-kfc-collab-20230928.jpg',
+    expiry: '2025-05-01'
+  },
+  {
+    title: 'Try Our New Burger',
+    description: 'Introducing spicy cheese burst burger at ₹99 only!',
+    imageUrl: 'https://ascentialcdn.filespin.io/api/v1/conversion/8ac687c6ea0b4a468c7bec094a522806',
+    expiry: '2025-04-15'
+  }
+];
 
 // Start server.
 const PORT = process.env.PORT || 3035;

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Advertisements – Canteen POS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Poppins', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    .fade {
+      transition: opacity 1s ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-black text-white font-sans h-screen flex items-center justify-center overflow-hidden">
+
+  <% if (ads.length === 0) { %>
+    <div class="text-center">
+      <h1 class="text-3xl font-bold text-red-500 mb-4">No Advertisements Available</h1>
+      <p class="text-gray-400">Please upload advertisements to display.</p>
+    </div>
+  <% } else { %>
+    <div id="slideshow" class="relative w-full h-full">
+      <% ads.forEach((ad, index) => { %>
+        <div class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center text-center fade <%= index === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0' %>" data-index="<%= index %>">
+            <img src="<%= ad.imageUrl %>" alt="Ad Image" class="w-full max-w-screen object-contain absolute top-0 left-0 z-0 opacity-50" />
+          <div class="relative z-10 bg-black bg-opacity-50 p-6 rounded">
+            <h2 class="text-3xl font-bold mb-2"><%= ad.title %></h2>
+            <p class="text-lg text-gray-300 mb-2"><%= ad.description %></p>
+            <p class="text-sm text-gray-400">Expires: <%= new Date(ad.expiry).toLocaleDateString() %></p>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+
+    <script>
+      const slides = document.querySelectorAll('#slideshow > div');
+      let currentIndex = 0;
+
+      setInterval(() => {
+        slides[currentIndex].classList.remove('opacity-100', 'z-10');
+        slides[currentIndex].classList.add('opacity-0', 'z-0');
+
+        currentIndex = (currentIndex + 1) % slides.length;
+
+        slides[currentIndex].classList.remove('opacity-0', 'z-0');
+        slides[currentIndex].classList.add('opacity-100', 'z-10');
+      }, 5000); // change every 5 seconds
+    </script>
+  <% } %>
+
+</body>
+</html>

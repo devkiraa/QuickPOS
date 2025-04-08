@@ -3,6 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
+const FoodItem = require('../models/FoodItem');
 
 /**
  * GET /kitchen/orders
@@ -54,14 +55,33 @@ router.post('/complete', async (req, res) => {
  * Mark an order as "Out of Stock"
  */
 router.post('/out-of-stock', async (req, res) => {
-  const { orderId } = req.body;
+  const { orderId, outOfStockItems } = req.body;
+  const items = Array.isArray(outOfStockItems)
+    ? outOfStockItems
+    : outOfStockItems
+    ? [outOfStockItems]
+    : [];
+
   try {
-    await Order.findByIdAndUpdate(orderId, { order_status: 'Out of Stock' });
+    // Mark the order as "Out of Stock"
+    await Order.findByIdAndUpdate(orderId, {
+      order_status: 'Out of Stock',
+    });
+
+    // Set qty of selected food items to 0
+    await Promise.all(
+      items.map(foodId =>
+        FoodItem.findByIdAndUpdate(foodId, { qty: 0 })
+      )
+    );
+
     res.redirect('/kitchen/orders');
   } catch (err) {
-    console.error('Error marking order out of stock:', err);
+    console.error('Error marking item/order out of stock:', err);
     res.status(500).send('Internal Server Error');
   }
 });
+
+router.post('/dashboard/delete-order', async (req, res) => { const { orderId } = req.body; try { await Order.findByIdAndDelete(orderId); res.redirect('/kitchen/orders'); } catch (err) { console.error('Error deleting order:', err); res.status(500).send('Internal Server Error'); } });
 
 module.exports = router;
