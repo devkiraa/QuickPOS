@@ -6,15 +6,14 @@
   <title>Online Orders - Payment Reception</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background-color: #fff;
     }
     @media (max-width: 640px) {
       table { font-size: 0.875rem; }
     }
-    /* Modal styles */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -35,9 +34,9 @@
       </div>
       <nav class="flex-1">
         <ul>
-          <li><a href="/dashboard"        class="block py-3 px-6 hover:bg-gray-50">Home</a></li>
-          <li><a href="/orders/list"      class="block py-3 px-6 hover:bg-gray-50">Order List</a></li>
-          <li><a href="/orders/online"    class="block py-3 px-6 text-green-600 font-semibold">Online Orders</a></li>
+          <li><a href="/dashboard" class="block py-3 px-6 hover:bg-gray-50">Home</a></li>
+          <li><a href="/orders/list" class="block py-3 px-6 hover:bg-gray-50">Order List</a></li>
+          <li><a href="/orders/online" class="block py-3 px-6 text-green-600 font-semibold">Online Orders</a></li>
           <li><a href="/dashboard/manage-items" class="block py-3 px-6 hover:bg-gray-50">Manage Items</a></li>
           <li><a href="/dashboard/settings" class="block py-3 px-6 hover:bg-gray-50">Settings</a></li>
         </ul>
@@ -57,7 +56,7 @@
         <thead class="bg-green-500 text-white">
           <tr>
             <th class="py-3 px-4">Ref Number</th>
-            <th class="py-3 px-4">Order ID (Secure)</th>
+            <th class="py-3 px-4">Order ID</th>
             <th class="py-3 px-4">Customer</th>
             <th class="py-3 px-4">Mobile</th>
             <th class="py-3 px-4">Total (₹)</th>
@@ -67,44 +66,46 @@
         </thead>
         <tbody>
           <% orders.forEach(order => { %>
-            <tr class="border-b">
-              <td class="py-2 px-4 text-center font-semibold"><%= order.orderNumber %></td>
-              <td class="py-2 px-4 text-center"><%= order.orderId %></td>
-              <td class="py-2 px-4"><%= order.customerName %></td>
-              <td class="py-2 px-4"><%= order.mobile %></td>
-              <td class="py-2 px-4 text-right font-semibold">₹<%= order.totalAmount.toFixed(2) %></td>
-              <td class="py-2 px-4 text-center"><%= order.status %></td>
-              <td class="py-2 px-4 text-center">
-                <% if(order.status === "Pending") { %>
-                  <button onclick="openPaymentModal('<%= order.orderId %>', '<%= order.totalAmount %>')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">Continue Order</button>
-                <% } else { %>
-                  <span class="text-green-600 font-bold">Paid</span>
-                <% } %>
-              </td>
-            </tr>
-            <tr class="bg-gray-50">
-              <td colspan="7" class="py-2 px-4">
-                <strong>Items:</strong>
-                <ul class="list-disc list-inside">
-                  <% order.items.forEach(function(item) { %>
-                    <li>
-                      <%= item.foodItem ? item.foodItem.name : "Item" %> &mdash; Qty: <%= item.quantity %>
-                    </li>
-                  <% }); %>
-                </ul>
-              </td>
-            </tr>
-          <% }); %>
+          <tr class="border-b">
+            <td class="py-2 px-4 text-center font-semibold"><%= order.orderNumber %></td>
+            <td class="py-2 px-4 text-center"><%= order.orderId %></td>
+            <td class="py-2 px-4"><%= order.customerName %></td>
+            <td class="py-2 px-4"><%= order.mobile %></td>
+            <td class="py-2 px-4 text-right font-semibold">₹<%= order.totalAmount.toFixed(2) %></td>
+            <td class="py-2 px-4 text-center"><%= order.status %></td>
+            <td class="py-2 px-4 text-center">
+              <% if (order.status === "Pending") { %>
+                <button onclick="openPaymentModal('<%= order.orderId %>', <%= order.totalAmount %>)"
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
+                  Continue Order
+                </button>
+              <% } else { %>
+                <span class="text-green-600 font-bold">Paid</span>
+              <% } %>
+            </td>
+          </tr>
+          <tr class="bg-gray-50">
+            <td colspan="7" class="py-2 px-4">
+              <strong>Items:</strong>
+              <ul class="list-disc list-inside">
+                <% order.items.forEach(item => { %>
+                  <li><%= item.foodItem?.name || "Item" %> — Qty: <%= item.quantity %></li>
+                <% }) %>
+              </ul>
+            </td>
+          </tr>
+          <% }) %>
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- Payment Modal Popup -->
-  <div id="paymentModal" class="modal-overlay">
+  <!-- Payment Modal -->
+  <div id="paymentModal" class="modal-overlay" role="dialog" aria-modal="true" tabindex="-1">
     <div class="bg-white p-6 rounded shadow-lg max-w-md w-full">
       <h2 class="text-xl font-bold mb-4">Continue Order Payment</h2>
       <p id="orderInfo" class="mb-4"></p>
+
       <div class="mb-4">
         <label class="inline-flex items-center mr-4">
           <input type="radio" name="paymentMode" value="Cash" class="form-radio" checked>
@@ -115,14 +116,20 @@
           <span class="ml-2">UPI</span>
         </label>
       </div>
+
       <div id="upiSection" class="mb-4 hidden">
-        <p class="mb-2">Scan QR Code to pay via UPI:</p>
-        <!-- The QR code is generated using the active UPI id and the order amount -->
-        <img id="upiQr" src="" alt="UPI QR Code" class="mx-auto mb-2">
+        <p class="mb-2">Scan this QR to pay via UPI:</p>
+        <img id="upiQr" src="" alt="UPI QR Code" class="mx-auto mb-2" />
       </div>
+
       <div class="flex justify-end">
-        <button onclick="cancelOrder()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded mr-2">Cancel Order</button>
-        <button onclick="completeOrder()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded">Complete Order</button>
+        <button onclick="cancelOrder()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded mr-2">
+          Cancel
+        </button>
+        <button id="actionButton" onclick="handleAction()"
+                class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded">
+          Proceed
+        </button>
       </div>
       <div class="mt-4 text-right">
         <button onclick="closeModal()" class="text-gray-500 hover:underline">Close</button>
@@ -130,118 +137,77 @@
     </div>
   </div>
 
-  <!-- Inline Script for Payment Modal and Order Actions -->
   <script>
     let currentOrderId = "";
     let currentAmount = 0;
-    let activeUpiId = "<%= (activeUpi && activeUpi.upiId) ? activeUpi.upiId : '' %>"; // Store UPI ID for easier access
+    const activeUpiId = "<%= (activeUpi && activeUpi.upiId) || '' %>";
 
-    // Open the payment modal and set order details
     function openPaymentModal(orderId, amount) {
       currentOrderId = orderId;
       currentAmount = amount;
-      document.getElementById('orderInfo').innerText = "Order ID: " + orderId + " | Amount: ₹" + amount.toFixed(2);
-      // Reset radio button to default (Cash) and hide UPI section
+      document.getElementById('orderInfo').innerText =
+        `Order ID: ${orderId} | Amount: ₹${amount.toFixed(2)}`;
+      // reset
       document.querySelector('input[name="paymentMode"][value="Cash"]').checked = true;
       document.getElementById('upiSection').classList.add('hidden');
-      document.getElementById('upiQr').src = ""; // Clear previous QR code
-      // Show the modal
+      document.getElementById('upiQr').src = "";
+      document.getElementById('actionButton').innerText = "Proceed";
       document.getElementById('paymentModal').style.display = "flex";
     }
 
-    // Close the modal
     function closeModal() {
       document.getElementById('paymentModal').style.display = "none";
     }
 
-    // Function to initiate the UPI transaction logging
     async function initiateUpiTransaction() {
       if (!activeUpiId) {
-          alert("Error: Active UPI ID is not configured.");
-          return false; // Indicate failure
+        alert("Error: No active UPI ID configured.");
+        return false;
       }
-      const data = {
-        orderId: currentOrderId,
-        amount: currentAmount,
-        upiId: activeUpiId
-      };
-
       try {
-        const response = await fetch("/orders/initiate-upi", { // NEW Endpoint
+        const res = await fetch("/orders/initiate-upi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data)
+          body: JSON.stringify({
+            orderId: currentOrderId,
+            amount: currentAmount,
+            upiId: activeUpiId
+          })
         });
-        const result = await response.json();
-
-        if (result.success) {
-          console.log("UPI transaction initiated successfully for order:", currentOrderId);
-          return true; // Indicate success
+        const data = await res.json();
+        if (data.success && data.qrCode) {
+          // data.qrCode is the base64 string saved in DB
+          document.getElementById('upiQr').src = `data:image/png;base64,${data.qrCode}`;
+          return true;
         } else {
-          alert("Error initiating UPI transaction: " + result.message);
-          return false; // Indicate failure
+          alert("UPI initiation failed: " + (data.message || "unknown error"));
+          return false;
         }
-      } catch (err) {
-        console.error("Error calling /initiate-upi:", err);
-        alert("Network error initiating UPI transaction.");
-        return false; // Indicate failure
+      } catch (e) {
+        console.error(e);
+        alert("Network error initiating UPI.");
+        return false;
       }
     }
 
-    // Listen for changes in payment mode
-    document.querySelectorAll('input[name="paymentMode"]').forEach(radio => {
-      radio.addEventListener('change', async function() { // Make listener async
-        const upiSection = document.getElementById('upiSection');
-        if (this.value === "UPI") {
-          // Attempt to initiate the UPI transaction record *before* showing QR
-          const initiated = await initiateUpiTransaction();
-
-          if (initiated) {
-            // If initiation successful, generate and show QR code
-            const tn = encodeURIComponent("Payment for Order #" + currentOrderId);
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(`upi://pay?pa=${activeUpiId}&am=${currentAmount.toFixed(2)}&cu=INR&tn=${tn}`)}`;
-            document.getElementById('upiQr').src = qrUrl;
-            upiSection.classList.remove('hidden');
-          } else {
-            // If initiation failed, keep UPI section hidden and potentially revert selection?
-            upiSection.classList.add('hidden');
-            // Optional: Switch back to Cash if UPI initiation fails
-            // document.querySelector('input[name="paymentMode"][value="Cash"]').checked = true;
-            alert("Failed to set up UPI payment. Please try again or use Cash.");
-          }
-        } else {
-          // If switched back to Cash (or other non-UPI method), hide the UPI section
-          upiSection.classList.add('hidden');
-          document.getElementById('upiQr').src = ""; // Clear QR code
-        }
-      });
-    });
-
-    // Complete the order (No changes needed here)
     function completeOrder() {
       const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
-      const data = {
-        orderId: currentOrderId,
-        paymentMode: paymentMode
-      };
-      // The backend route /complete-payment already handles finding the order
-      // and updating the UpiTransaction status if paymentMode is UPI.
-      if (paymentMode === "UPI") {
-        data.upiId = activeUpiId; // Send the active UPI ID along
-      }
+      const payload = { orderId: currentOrderId, paymentMode };
+      if (paymentMode === "UPI") payload.upiId = activeUpiId;
+
       fetch("/orders/complete-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
+        body: JSON.stringify(payload)
       })
-      .then(response => response.json())
-      .then(result => {
-        if (result.success) {
-          alert("Order " + currentOrderId + " marked as Paid.");
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          alert(`Order ${currentOrderId} marked as Paid.`);
           closeModal();
           location.reload();
         } else {
-          alert("Error: " + result.message);
+          alert("Error: " + res.message);
         }
       })
       .catch(err => {
@@ -250,28 +216,41 @@
       });
     }
 
-    // Cancel the order (No changes needed here)
     function cancelOrder() {
-      if (confirm("Are you sure you want to cancel Order " + currentOrderId + "? This will remove the order from the database.")) {
-        // Optional: You might want another backend call here to specifically cancel/delete
-        // the 'Pending' UpiTransaction if one was created.
-        fetch("/orders/delete/" + currentOrderId, {
-          method: "DELETE"
-        })
-        .then(response => response.json())
-        .then(result => {
-          if (result.success) {
-            alert("Order " + currentOrderId + " cancelled.");
+      if (!confirm(`Cancel Order ${currentOrderId}?`)) return;
+      fetch(`/orders/delete/${currentOrderId}`, { method: "DELETE" })
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            alert(`Order ${currentOrderId} cancelled.`);
             closeModal();
-            location.reload(); // Reload to reflect the change
+            location.reload();
           } else {
-            alert("Error: " + result.message);
+            alert("Error: " + res.message);
           }
         })
         .catch(err => {
           console.error(err);
           alert("Error cancelling order.");
         });
+    }
+
+    async function handleAction() {
+      const mode = document.querySelector('input[name="paymentMode"]:checked').value;
+      if (mode === "Cash") {
+        completeOrder();
+      } else {
+        const upiSection = document.getElementById('upiSection');
+        if (upiSection.classList.contains('hidden')) {
+          // first click: generate & display QR
+          const ok = await initiateUpiTransaction();
+          if (!ok) return;
+          upiSection.classList.remove('hidden');
+          document.getElementById('actionButton').innerText = "Complete Order";
+        } else {
+          // second click: finalize payment
+          completeOrder();
+        }
       }
     }
   </script>

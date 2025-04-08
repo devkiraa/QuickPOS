@@ -5,7 +5,7 @@ const router = express.Router();
 const Order = require("../models/Order");
 const Upi = require("../models/Upi");
 const FoodItem = require("../models/FoodItem");
-
+const QRCode  = require('qrcode'); 
 /**
  * GET /list
  * Fetches a list of orders (most recent first) and renders an order list page.
@@ -165,55 +165,42 @@ router.delete("/delete/:orderId", async (req, res) => {
   }
 });
 
-router.post("/initiate-upi", async (req, res) => {
+router.post("/orders/initiate-upi", async (req, res) => {
+  const { orderId, amount, upiId } = req.body;
+
   try {
-    const { orderId, amount, upiId } = req.body;
+    // 1. Build the UPI URI
+    const tn     = encodeURIComponent(`Payment for Order #${orderId}`);
+    const upiUri = `upi://pay?pa=${upiId}&am=${amount.toFixed(2)}&cu=INR&tn=${tn}`;
 
-    // Basic validation
-    if (!orderId || !amount || !upiId) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields: orderId, amount, or upiId.",
-      });
-    }
+    // 2. Generate a data‑URL (base64 PNG)
+    const dataUrl = await QRCode.toDataURL(upiUri);
+    //    dataUrl === 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA…'
 
-    // Optional: Check if a pending transaction already exists for this orderId
-    // to potentially avoid duplicates if the user clicks UPI multiple times.
-    // const existingPendingTxn = await UpiTransaction.findOne({ orderId: orderId, status: "Pending" });
-    // if (existingPendingTxn) {
-    //   console.log(`Pending UPI transaction already exists for orderId: ${orderId}`);
-    //   // You could just return success here, or update the timestamp of the existing one.
-    //   // For now, we'll allow creating potentially multiple pending records if clicked repeatedly,
-    //   // as '/complete-payment' uses updateMany which handles this scenario.
-    //   // return res.json({ success: true, message: "UPI transaction already initiated." });
-    // }
+    // 3. Strip prefix, keep only raw base64
+    const base64 = dataUrl.split(",")[1];
 
-    // Create a new UPI transaction record with "Pending" status
+    // 4. Save into Mongo
     const newTransaction = new UpiTransaction({
-      orderId: orderId,
-      amount: Number(amount), // Ensure amount is stored as a number
-      upiId: upiId,
-      status: "Pending", // Set initial status to Pending
-      paymentMode: "UPI", // Explicitly set payment mode
-      // Add timestamp if your schema doesn't handle it automatically
-      // createdAt: new Date()
+      orderId,
+      upiId,
+      qrCode: base64,
+      status: "Pending",
     });
-
     await newTransaction.save();
-    console.log(
-      `UPI transaction initiated and saved for orderId: ${orderId}`
-    );
 
-    res.json({ success: true, message: "UPI transaction initiated." });
+    console.log(`UPI transaction saved for orderId: ${orderId}`);
+
+    // 5. Return success + base64 so client can render it
+    res.json({ success: true, qrCode: base64 });
   } catch (err) {
-    console.error("Error in /initiate-upi endpoint:", err);
+    console.error("Error in /orders/initiate-upi:", err);
     res.status(500).json({
       success: false,
       message: "Error initiating UPI transaction: " + err.message,
     });
   }
 });
-
 /**
  * POST /complete-payment
  * Marks an order as paid and, if the payment was via UPI, updates related transaction statuses.
