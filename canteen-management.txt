@@ -1,8 +1,11 @@
-Things to do 
-* update the UI of QR on the mobile app
-* update the ui of both the qr of laptop screen
-* remove all the alerts 
-* 
-* 
-* 
-* 
+Things to do for the app
+* validation 
+* product search not working
+* move the logout to the top
+* clear the form after the order is submitted
+* view order items - product name not found
+* modify order
+* error deleteing but no error
+* filter order
+* sort orders by upi id 
+* auto refresh online order page 
