@@ -86,10 +86,11 @@
             <td class="py-2 px-4 text-right font-semibold">₹<%= order.totalAmount.toFixed(2) %></td>
             <td class="py-2 px-4 text-center"><%= order.status %></td>
             <td class="py-2 px-4 text-center">
-              <button onclick="openPaymentModal('<%= order.orderNumber %>', <%= order.totalAmount %>)"
-                      class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
-                Continue Order
-              </button>
+              <!-- Example button in your template (EJS) -->
+<button onclick="openPaymentModal('<%= order.orderId %>', '<%= order.orderNumber %>', <%= order.totalAmount %>)"
+  class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
+Continue Payment
+</button>
               <button onclick='viewItems("<%= order.orderNumber %>", <%- JSON.stringify(order.items) %>)'
                       class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded ml-2">
                 View Items
@@ -192,13 +193,17 @@
   </div>
 
   <script>
+    // Hold both the unique order id (used on the server) and order number (display)
+    let currentOrderId = "";
     let currentOrderNumber = "";
     let currentAmount = 0;
     const activeUpiId = "<%= (activeUpi && activeUpi.upiId) || '' %>";
-
+  
     // Payment Modal functions
-    function openPaymentModal(orderNumber, amount) {
-      currentOrderNumber = orderNumber;
+    // Now receives both orderId and orderNumber
+    function openPaymentModal(orderId, orderNumber, amount) {
+      currentOrderId = orderId;         // Unique id for backend operations
+      currentOrderNumber = orderNumber; // Display number
       currentAmount = amount;
       document.getElementById('orderInfo').innerText =
         `Order Number: ${orderNumber} | Amount: ₹${amount.toFixed(2)}`;
@@ -209,11 +214,11 @@
       document.getElementById('actionButton').innerText = "Proceed";
       document.getElementById('paymentModal').style.display = "flex";
     }
-
+  
     function closeModal() {
       document.getElementById('paymentModal').style.display = "none";
     }
-
+  
     async function initiateUpiTransaction() {
       if (!activeUpiId) {
         alert("Error: No active UPI ID configured.");
@@ -223,8 +228,9 @@
         const res = await fetch("/orders/initiate-upi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          // Note: Pass the unique orderId (not orderNumber) to the back‑end
           body: JSON.stringify({
-            orderNumber: currentOrderNumber,
+            orderId: currentOrderId,
             amount: currentAmount,
             upiId: activeUpiId
           })
@@ -244,12 +250,13 @@
         return false;
       }
     }
-
+  
     function completeOrder() {
       const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
-      const payload = { orderNumber: currentOrderNumber, paymentMode };
+      // Send the unique orderId in the payload
+      const payload = { orderId: currentOrderId, paymentMode };
       if (paymentMode === "UPI") payload.upiId = activeUpiId;
-
+  
       fetch("/orders/complete-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -258,7 +265,6 @@
       .then(r => r.json())
       .then(res => {
         if (res.success) {
-          alert(`Order ${currentOrderNumber} marked as Paid.`);
           closeModal();
           location.reload();
         } else {
@@ -270,10 +276,11 @@
         alert("Error completing order.");
       });
     }
-
+  
     function cancelOrder() {
       if (!confirm(`Cancel Order ${currentOrderNumber}?`)) return;
-      fetch(`/orders/delete/${currentOrderNumber}`, { method: "DELETE" })
+      // Use the unique orderId for deletion.
+      fetch(`/orders/delete/${currentOrderId}`, { method: "DELETE" })
         .then(r => r.json())
         .then(res => {
           if (res.success) {
@@ -289,7 +296,7 @@
           alert("Error cancelling order.");
         });
     }
-
+  
     async function handleAction() {
       const mode = document.querySelector('input[name="paymentMode"]:checked').value;
       if (mode === "Cash") {
@@ -308,8 +315,8 @@
         }
       }
     }
-
-    // Items Modal functions
+  
+    // Items Modal functions remain unchanged...
     function viewItems(orderNumber, items) {
       document.getElementById('modalOrderNumber').innerText = orderNumber;
       const itemsList = document.getElementById('itemsList');
@@ -329,10 +336,10 @@
       }
       document.getElementById('itemsModal').style.display = "flex";
     }
-
+  
     function closeItemsModal() {
       document.getElementById('itemsModal').style.display = "none";
     }
-  </script>
+  </script>  
 </body>
 </html>

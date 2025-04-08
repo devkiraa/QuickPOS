@@ -178,7 +178,7 @@ router.delete('/cleanup/online-orders', async (req, res) => {
   }
 });
 /**
- * POST /orders/initiate-upi
+ * POST /initiate-upi
  * Initiates the UPI payment process for an order. It generates the UPI URI,
  * creates a QR code from the URI, saves the details in upi_transactions,
  * and updates the Order document with a reference to the generated UPI transaction.
