@@ -1,11 +1,11 @@
-// routes/commonRoutes.js
-
 const express = require("express");
 const router = express.Router();
 const Order = require("../models/Order");
 const Upi = require("../models/Upi");
 const FoodItem = require("../models/FoodItem");
-const QRCode  = require('qrcode'); 
+const QRCode = require("qrcode");
+const UpiTransaction = require("../models/UpiTransaction");
+
 /**
  * GET /list
  * Fetches a list of orders (most recent first) and renders an order list page.
@@ -38,16 +38,12 @@ router.get("/details/:orderId", async (req, res) => {
   try {
     const order = await Order.findOne({ orderId: req.params.orderId });
     if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Order not found" });
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
     res.json({ success: true, order });
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ success: false, message: "Error fetching order details" });
+    res.status(500).json({ success: false, message: "Error fetching order details" });
   }
 });
 
@@ -64,9 +60,7 @@ router.post("/modify/:orderId", async (req, res) => {
 
     const order = await Order.findOne({ orderId });
     if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Order not found" });
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
 
     // Initialize orderData if it does not exist.
@@ -151,9 +145,7 @@ router.delete("/delete/:orderId", async (req, res) => {
     const orderId = req.params.orderId;
     const result = await Order.deleteOne({ orderId });
     if (result.deletedCount === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Order not found" });
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
     res.json({ success: true, orderId });
   } catch (err) {
@@ -165,22 +157,38 @@ router.delete("/delete/:orderId", async (req, res) => {
   }
 });
 
-router.post("/orders/initiate-upi", async (req, res) => {
-  const { orderId, amount, upiId } = req.body;
-
+/**
+ * POST /orders/initiate-upi
+ * Initiates the UPI payment process for an order. It generates the UPI URI,
+ * creates a QR code from the URI, saves the details in upi_transactions,
+ * and updates the Order document with a reference to the generated UPI transaction.
+ */
+router.post("/initiate-upi", async (req, res) => {
   try {
-    // 1. Build the UPI URI
-    const tn     = encodeURIComponent(`Payment for Order #${orderId}`);
-    const upiUri = `upi://pay?pa=${upiId}&am=${amount.toFixed(2)}&cu=INR&tn=${tn}`;
+    const { orderId, amount, upiId } = req.body;
 
-    // 2. Generate a data‑URL (base64 PNG)
+    // Validate required fields.
+    if (!orderId || typeof amount !== "number" || !upiId) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+    const numericAmount = Number(amount);
+    if (isNaN(numericAmount)) {
+      return res.status(400).json({ success: false, message: "Amount must be a number" });
+    }
+
+    // Build the UPI URI
+    const tn = encodeURIComponent(`Payment for Order #${orderId}`);
+    const formattedAmount = numericAmount.toFixed(2);
+    const upiUri = `upi://pay?pa=${upiId}&am=${formattedAmount}&cu=INR&tn=${tn}`;
+    console.log("Generated UPI URI:", upiUri);
+
+    // Generate the QR code as a Base64 PNG
     const dataUrl = await QRCode.toDataURL(upiUri);
-    //    dataUrl === 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA…'
-
-    // 3. Strip prefix, keep only raw base64
+    // Remove the data URL prefix so that only the Base64 string remains.
     const base64 = dataUrl.split(",")[1];
+    console.log("Generated QR code (Base64):", base64 ? "exists" : "missing");
 
-    // 4. Save into Mongo
+    // Create a new UPI transaction record
     const newTransaction = new UpiTransaction({
       orderId,
       upiId,
@@ -188,10 +196,20 @@ router.post("/orders/initiate-upi", async (req, res) => {
       status: "Pending",
     });
     await newTransaction.save();
+    console.log("Saved UPI transaction with ID:", newTransaction._id);
 
-    console.log(`UPI transaction saved for orderId: ${orderId}`);
+    // Update the order document with the UPI transaction details (if the order exists)
+    const updatedOrder = await Order.findOneAndUpdate(
+      { orderId },
+      { $set: { upiTransactionId: newTransaction._id, status: "UPI Initiated" } },
+      { new: true }
+    );
+    if (updatedOrder) {
+      console.log("Updated Order with UPI transaction:", updatedOrder);
+    } else {
+      console.warn("Order not found for orderId:", orderId);
+    }
 
-    // 5. Return success + base64 so client can render it
     res.json({ success: true, qrCode: base64 });
   } catch (err) {
     console.error("Error in /orders/initiate-upi:", err);
@@ -201,40 +219,32 @@ router.post("/orders/initiate-upi", async (req, res) => {
     });
   }
 });
+
 /**
  * POST /complete-payment
  * Marks an order as paid and, if the payment was via UPI, updates related transaction statuses.
- * (This route remains unchanged)
  */
 router.post("/complete-payment", async (req, res) => {
-  // ... your existing code for /complete-payment ...
-  // It correctly finds the Order and uses UpiTransaction.updateMany
-  // to set the status to "Paid", which will update the record created above.
   try {
     const { orderId, paymentMode, upiId } = req.body;
     const order = await Order.findOne({ orderId });
     if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Order not found" });
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
     order.status = "Paid";
     order.paymentMode = paymentMode;
     if (paymentMode === "UPI" && upiId) {
-      order.upiId = upiId; // Store the UPI ID used on the Order as well
+      order.upiId = upiId;
     }
     await order.save();
 
-    // If payment was made using UPI, update the UPI transaction record(s).
+    // If payment was made using UPI, update the UPI transaction record(s)
     if (paymentMode === "UPI") {
-      const UpiTransaction = require('../models/UpiTransaction'); // Already required above
       const updateResult = await UpiTransaction.updateMany(
-        { orderId: orderId }, // Find transaction(s) by orderId
-        { $set: { status: "Paid" } } // Set status to Paid
+        { orderId: orderId },
+        { $set: { status: "Paid" } }
       );
-      console.log(
-        `Updated ${updateResult.modifiedCount} UPI transaction(s) to Paid for orderId: ${orderId}`
-      );
+      console.log(`Updated ${updateResult.modifiedCount} UPI transaction(s) to Paid for orderId: ${orderId}`);
     }
 
     res.json({ success: true, orderId });
@@ -256,7 +266,6 @@ router.get("/success", async (req, res) => {
     const orderId = req.query.orderId;
     let order = null;
     if (orderId) {
-      // Populate food item details for the order.
       order = await Order.findOne({ orderId })
         .populate("items.foodItem")
         .exec();

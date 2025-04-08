@@ -147,7 +147,7 @@
       currentAmount = amount;
       document.getElementById('orderInfo').innerText =
         `Order ID: ${orderId} | Amount: ₹${amount.toFixed(2)}`;
-      // reset
+      // Reset radio buttons and UPI section
       document.querySelector('input[name="paymentMode"][value="Cash"]').checked = true;
       document.getElementById('upiSection').classList.add('hidden');
       document.getElementById('upiQr').src = "";
@@ -176,7 +176,7 @@
         });
         const data = await res.json();
         if (data.success && data.qrCode) {
-          // data.qrCode is the base64 string saved in DB
+          // data.qrCode is the base64 QR code image
           document.getElementById('upiQr').src = `data:image/png;base64,${data.qrCode}`;
           return true;
         } else {
@@ -242,13 +242,13 @@
       } else {
         const upiSection = document.getElementById('upiSection');
         if (upiSection.classList.contains('hidden')) {
-          // first click: generate & display QR
+          // First click: generate & display QR for UPI payment
           const ok = await initiateUpiTransaction();
           if (!ok) return;
           upiSection.classList.remove('hidden');
           document.getElementById('actionButton').innerText = "Complete Order";
         } else {
-          // second click: finalize payment
+          // Second click: finalize payment
           completeOrder();
         }
       }
