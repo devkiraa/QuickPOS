@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Order Successful - Canteen POS</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Include html2canvas for PNG download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap");
       body {
@@ -99,26 +101,33 @@
           </div>
         </div>
 
-        <!-- Ordered Items Summary -->
-        <div id="orderedItemsSummary" class="mb-6 text-left">
-          <h2 class="text-base font-semibold text-gray-700 mb-2">Ordered Items:</h2>
-          <ul class="list-disc list-inside text-sm text-gray-600">
-            <% order.items.forEach(function(item) { %>
-              <li>
-                <%= item.foodItem ? item.foodItem.name : "Item" %>: <%= item.quantity %>
-              </li>
-            <% }) %>
-          </ul>
+        <!-- Redesigned Ordered Items Summary -->
+<div id="orderedItemsSummary" class="mb-6">
+  <h2 class="text-xl font-semibold text-gray-800 mb-4">Ordered Items</h2>
+  <div class="grid grid-cols-1 gap-4">
+    <% order.items.forEach(function(item) { %>
+      <div class="flex items-center justify-between bg-gray-50  border-gray-200 rounded-lg p-4 shadow-sm transition duration-200">
+        <div class="text-gray-700 font-medium">
+          <%= item.foodItem ? item.foodItem.name : "Item" %>
         </div>
+        <div class="text-gray-500 text-sm">
+          Quantity: <span class="font-semibold"><%= item.quantity %></span>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
 
         <!-- UPI Payment Section: Only show if order status is not paid -->
         <% if (activeUpi && order && order.status.toLowerCase() !== "paid") { %>
           <div class="flex justify-center space-x-4">
+            <!-- Download Button -->
             <button
-              id="refreshButton"
+              id="downloadButton"
               class="inline-block bg-green-600 text-white text-center py-3 rounded-lg font-semibold hover:bg-green-700 transition px-4"
             >
-              Refresh
+              Download
             </button>
             <button
               id="newOrderButton"
@@ -128,18 +137,9 @@
               Place New Order
             </button>
           </div>
-          <p id="upiHelpText" class="text-sm text-gray-700 mb-6">
-            </p>
-          <p id="upiHelpText" class="text-sm text-gray-700 mb-6">
-          Please complete your payment at the counter.
-          </p>
-          <script>
-            document.getElementById("refreshButton").addEventListener("click", async function () {
-              // Simply reload the page to check for updated payment status
-              location.reload();
-            });
-          </script>
-          
+          <p id="upiHelpText" class="text-xs font-medium text-gray-700 py-4 leading-relaxed mb-6" style="text-align: justify;">
+            Note : Your order has been successfully placed. Please download the confirmation page for your records, and proceed to complete your payment at the counter. If you need assistance, our support team is here to help.
+          </p>                  
         <% } %>
       <% } else { %>
         <p class="text-sm text-gray-700 mb-6">Your order has been placed successfully.</p>
@@ -177,19 +177,28 @@
           }
         }
         const pollingInterval = setInterval(fetchOrderStatus, 2000);
-
-        function toggleItems() {
-          const itemsSection = document.getElementById("itemsSection");
-          const toggleBtn = document.getElementById("toggleItemsBtn");
-          if (itemsSection.classList.contains("hidden")) {
-            itemsSection.classList.remove("hidden");
-            toggleBtn.innerText = "Hide Items";
-          } else {
-            itemsSection.classList.add("hidden");
-            toggleBtn.innerText = "Show Items";
-          }
-        }
       <% } %>
+
+      // Download the order container as PNG image
+      const downloadButton = document.getElementById("downloadButton");
+      if (downloadButton) {
+        downloadButton.addEventListener("click", function () {
+          const container = document.getElementById("successContainer");
+          html2canvas(container).then(function(canvas) {
+            // Convert the canvas to a Data URL with PNG format.
+            const dataURL = canvas.toDataURL("image/png");
+            // Create a temporary link element and trigger a download
+            const link = document.createElement("a");
+            link.href = dataURL;
+            link.download = "order-summary.png";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }).catch(function(error) {
+            console.error("Error generating PNG", error);
+          });
+        });
+      }
     </script>
   </body>
 </html>
