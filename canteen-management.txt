@@ -6,6 +6,9 @@ Things to do for the app
 * view order items - product name not found
 * modify order
 * error deleteing but no error
-* filter order
+* filter order and next button (automatically reloads)
 * sort orders by upi id 
 * auto refresh online order page 
+
+
+ *kitchen orders-product visibility[deleted item]
