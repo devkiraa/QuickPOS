@@ -76,23 +76,23 @@
       />
     </div>
     <div class="overflow-x-auto hide-scrollbar">
-  <ul class="flex space-x-3">
-    <li>
-      <button
-        class="px-4 py-1 bg-white text-green-500 border border-green-500 rounded hover:bg-green-100 text-sm whitespace-nowrap"
-        onclick="filterBySection('All')"
-      >All</button>
-    </li>
-    <% sections.forEach(section => { %>
-      <li>
-        <button
-          class="px-4 py-1 bg-white text-green-500 border border-green-500 rounded hover:bg-green-100 text-sm whitespace-nowrap"
-          onclick="filterBySection('<%= section %>')"
-        ><%= section %></button>
-      </li>
-    <% }) %>
-  </ul>
-</div>   
+      <ul class="flex space-x-3">
+        <li>
+          <button
+            class="px-4 py-1 bg-white text-green-500 border border-green-500 rounded hover:bg-green-100 text-sm whitespace-nowrap"
+            onclick="filterBySection('All')"
+          >All</button>
+        </li>
+        <% sections.forEach(section => { %>
+          <li>
+            <button
+              class="px-4 py-1 bg-white text-green-500 border border-green-500 rounded hover:bg-green-100 text-sm whitespace-nowrap"
+              onclick="filterBySection('<%= section %>')"
+            ><%= section %></button>
+          </li>
+        <% }) %>
+      </ul>
+    </div>   
   </header>
 
   <!-- Main Content -->
@@ -132,6 +132,10 @@
         </div>
       <% }) %>
     </div>
+    <!-- Note after the last item card -->
+    <p class="text-xs text-center text-gray-500 mt-4">
+      Note : Images shown on the menu are for illustration purposes only. Actual items may vary.
+    </p>
   </main>
 
   <!-- Bottom Bar -->
@@ -170,7 +174,7 @@
         <div id="placeOrderLoader" class="hidden border-2 border-white border-t-transparent rounded-full w-4 h-4 animate-spin"></div>
       </button>
     </form>
- 
+    
   </div>
 
   <script>
@@ -205,7 +209,6 @@
       document.getElementById('placeOrderLoader').classList.remove('hidden');
     });
       
-    
     function updateCartDisplay() {
       cartItemsDiv.innerHTML = "";
       let total = 0;
