@@ -166,18 +166,18 @@
     // ========================
     // Auto-Refresh Orders every 5 seconds (AJAX)
     // ========================
-    async function refreshOrders() {
-      try {
-        const res = await fetch('/orders/list?ajax=true');
-        const data = await res.json();
-        if (data.orders) {
-          setupPagination(data.orders);
-        }
-      } catch (err) {
-        console.error("Error refreshing orders:", err);
-      }
-    }
-    setInterval(refreshOrders, 5000);
+    //async function refreshOrders() {
+      //try {
+        //const res = await fetch('/orders/list?ajax=true');
+        //const data = await res.json();
+        //if (data.orders) {
+          //setupPagination(data.orders);
+        //}
+      //} catch (err) {
+        //console.error("Error refreshing orders:", err);
+      //}
+    //}
+    //setInterval(refreshOrders, 5000);
 
     // ========================
     // Pagination Functions
