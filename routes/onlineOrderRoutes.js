@@ -66,7 +66,8 @@ router.get("/menu/:orderId", async (req, res) => {
 /**
  * POST /place/:orderId
  * Processes the order submission from the online menu.
- * Parses the JSON sent from the client, calculates the total amount, and saves the order.
+ * Parses the JSON sent from the client, calculates the total amount, updates the order,
+ * and if the order comes from the POS (counter), updates the FoodItem quantities.
  */
 router.post("/place/:orderId", async (req, res) => {
   try {
@@ -96,6 +97,20 @@ router.post("/place/:orderId", async (req, res) => {
     order.items = itemsArray;
     order.totalAmount = totalAmount;
     await order.save();
+
+    // ----- Update the FoodItem quantity directly from the DB -----
+    // Loop through each ordered item and decrement the inventory
+    // using MongoDB's $inc operator.
+    await Promise.all(
+      itemsArray.map(item =>
+        FoodItem.findByIdAndUpdate(
+          item.foodItem,
+          { $inc: { qty: -item.quantity } }
+        )
+      )
+    );
+    // ----------------------------------------------------------------
+
     // Redirect to the success page after placing the order.
     res.redirect("/orders/success?orderId=" + orderId);
   } catch (err) {

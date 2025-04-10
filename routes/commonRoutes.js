@@ -156,27 +156,82 @@ router.delete("/delete/:orderId", async (req, res) => {
     });
   }
 });
-
 // This will remove orders with empty items, totalAmount: 0, older than 7 minutes
+//router.delete('/cleanup/online-orders', async (req, res) => {
+  //try {
+    //const cutoff = new Date(Date.now() - 7 * 60 * 1000); // 7 minutes ago
+
+    //const result = await Order.deleteMany({
+      //status: 'Pending',
+     // order_status: 'Preparing',
+      //orderSource: 'online',
+    //  totalAmount: 0,
+     // items: { $size: 0 },
+      //createdAt: { $lt: cutoff }
+    //});
+
+    //res.json({ success: true, deletedCount: result.deletedCount });
+  //} catch (err) {
+    //console.error('Cleanup failed:', err);
+    //res.status(500).json({ success: false, error: err.message });
+  //}
+//});
+// This route cleans up two types of orders:
+// 1. Orders with empty items and totalAmount: 0 older than 7 minutes.
+// 2. Orders (even with items) that are still Pending (i.e. not paid) and older than 10 minutes.
+//    For orders with items, the corresponding FoodItem quantities will be updated (i.e. the deducted stock will be added back).
 router.delete('/cleanup/online-orders', async (req, res) => {
   try {
-    const cutoff = new Date(Date.now() - 7 * 60 * 1000); // 7 minutes ago
+    // Define cutoff times.
+    const cutoffEmpty = new Date(Date.now() - 7 * 60 * 1000);  // 7 minutes ago for empty orders.
+    const cutoffPlaced = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes ago for all pending orders.
 
-    const result = await Order.deleteMany({
-      status: 'Pending',
-      order_status: 'Preparing',
+    // ----- Cleanup Case A: Remove empty orders (totalAmount: 0 and items array is empty) -----
+    const emptyResult = await Order.deleteMany({
       orderSource: 'online',
+      status: 'Pending',       // Only remove if still pending (i.e. not paid).
+      order_status: 'Preparing',
       totalAmount: 0,
       items: { $size: 0 },
-      createdAt: { $lt: cutoff }
+      createdAt: { $lt: cutoffEmpty }
     });
 
-    res.json({ success: true, deletedCount: result.deletedCount });
+    // ----- Cleanup Case B: Remove placed orders that are pending older than 10 minutes -----
+    // Find all online orders that are still pending and older than 10 minutes.
+    const placedOrders = await Order.find({
+      orderSource: 'online',
+      status: 'Pending',       // Only remove if order is still pending (i.e. not paid).
+      createdAt: { $lt: cutoffPlaced }
+    });
+
+    // For each of these orders, if there are items, update the FoodItem stock,
+    // then remove the order.
+    for (const order of placedOrders) {
+      if (order.items && order.items.length > 0) {
+        for (const item of order.items) {
+          // Increment the FoodItem's qty by the ordered quantity.
+          await FoodItem.findByIdAndUpdate(
+            item.foodItem,
+            { $inc: { qty: item.quantity } }
+          );
+        }
+      }
+      // Delete the order after processing.
+      await Order.findByIdAndDelete(order._id);
+    }
+
+    // Send a JSON response with cleanup results.
+    res.json({
+      success: true,
+      emptyOrdersDeleted: emptyResult.deletedCount,
+      placedOrdersDeleted: placedOrders.length
+    });
   } catch (err) {
     console.error('Cleanup failed:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 /**
  * POST /initiate-upi
  * Initiates the UPI payment process for an order. It generates the UPI URI,
