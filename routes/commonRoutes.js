@@ -242,49 +242,47 @@ router.post("/initiate-upi", async (req, res) => {
   try {
     const { orderId, amount, upiId } = req.body;
 
-    // Validate required fields.
     if (!orderId || typeof amount !== "number" || !upiId) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
+
     const numericAmount = Number(amount);
     if (isNaN(numericAmount)) {
       return res.status(400).json({ success: false, message: "Amount must be a number" });
     }
 
-    // Build the UPI URI
-    const tn = encodeURIComponent(`Payment for Order #${orderId}`);
+    // ✅ Fetch orderNumber from existing order document
+    const order = await Order.findOne({ orderId });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    const orderNumber = order.orderNumber || null;
+
+    const tn = encodeURIComponent(`Payment for Order #${orderNumber || orderId}`);
     const formattedAmount = numericAmount.toFixed(2);
     const upiUri = `upi://pay?pa=${upiId}&am=${formattedAmount}&cu=INR&tn=${tn}`;
-    console.log("Generated UPI URI:", upiUri);
 
-    // Generate the QR code as a Base64 PNG image for display purposes
     const dataUrl = await QRCode.toDataURL(upiUri);
-    const base64Image = dataUrl.split(",")[1]; // Extract only the base64 string for the image
-    console.log("Generated QR code image (Base64):", base64Image ? "exists" : "missing");
+    const base64Image = dataUrl.split(",")[1];
 
-    // Create a new UPI transaction record storing the UPI URI, not the Base64 image.
+    // ✅ Save with orderNumber included
     const newTransaction = new UpiTransaction({
       orderId,
       upiId,
-      qrCode: upiUri, // Store the UPI URI in the DB
+      orderNumber, // ✅ Add this line if orderNumber is available
+      qrCode: upiUri,
       status: "Pending",
-    });
+    });    
     await newTransaction.save();
-    console.log("Saved UPI transaction with ID:", newTransaction._id);
 
-    // Update the order document with the UPI transaction details (if the order exists)
+    // ✅ Update the order document with UPI transaction reference
     const updatedOrder = await Order.findOneAndUpdate(
       { orderId },
       { $set: { upiTransactionId: newTransaction._id, status: "UPI Initiated" } },
       { new: true }
     );
-    if (updatedOrder) {
-      console.log("Updated Order with UPI transaction:", updatedOrder);
-    } else {
-      console.warn("Order not found for orderId:", orderId);
-    }
 
-    // Return the generated Base64 image (for client display) in the response.
     res.json({ success: true, qrCode: base64Image });
   } catch (err) {
     console.error("Error in /initiate-upi:", err);
