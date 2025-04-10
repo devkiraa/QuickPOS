@@ -50,22 +50,24 @@
         </div>
       </div>
     </aside>
-
     <!-- Main Content -->
     <div class="flex-1 p-6">
       <h1 class="text-3xl font-bold text-green-600 mb-6 text-center">Online Orders</h1>
-      
       <% 
         // Filter orders that have a non-zero total amount.
         const validOrders = orders.filter(order => order.totalAmount > 0);
         const unpaidOrders = validOrders.filter(order => order.status === "Pending");
         const paidOrders = validOrders.filter(order => order.status !== "Pending");
       %>
-      
       <!-- Unpaid Orders Section -->
-      <h2 class="text-2xl font-bold text-green-600 mb-4">Unpaid Orders</h2>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-green-600">Unpaid Orders</h2>
+        <div>
+          <input type="search" id="unpaidSearchInput" placeholder="Search unpaid orders..." class="border rounded px-2 py-1 w-full" oninput="filterUnpaidOrders()" />
+        </div>
+      </div>
       <% if(unpaidOrders.length) { %>
-      <table class="min-w-full bg-white rounded-lg shadow overflow-hidden mb-8">
+      <table class="min-w-full bg-white rounded-lg shadow overflow-hidden mb-8" id="unpaidOrdersTable">
         <thead class="bg-green-500 text-white">
           <tr>
             <th class="py-3 px-4">Ref Number</th>
@@ -77,22 +79,20 @@
             <th class="py-3 px-4">Action</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="unpaidOrdersBody">
           <% unpaidOrders.forEach(order => { %>
           <tr class="border-b">
             <td class="py-2 px-4 text-center font-semibold"><%= order.orderNumber %></td>
-            <!-- Use Order Number in place of Order ID -->
             <td class="py-2 px-4 text-center"><%= order.orderNumber %></td>
             <td class="py-2 px-4"><%= order.customerName %></td>
             <td class="py-2 px-4"><%= order.mobile %></td>
             <td class="py-2 px-4 text-right font-semibold">₹<%= order.totalAmount.toFixed(2) %></td>
             <td class="py-2 px-4 text-center"><%= order.status %></td>
             <td class="py-2 px-4 text-center">
-              <!-- Example button in your template (EJS) -->
-<button onclick="openPaymentModal('<%= order.orderId %>', '<%= order.orderNumber %>', <%= order.totalAmount %>)"
-  class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
-Continue Payment
-</button>
+              <button onclick="openPaymentModal('<%= order.orderId %>', '<%= order.orderNumber %>', <%= order.totalAmount %>)"
+                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
+                Continue Payment
+              </button>
               <button onclick='viewItems("<%= order.orderNumber %>", <%- JSON.stringify(order.items) %>)'
                       class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded ml-2">
                 View Items
@@ -105,11 +105,15 @@ Continue Payment
       <% } else { %>
         <p class="text-center text-gray-600 mb-8">No unpaid orders found.</p>
       <% } %>
-      
       <!-- Paid Orders Section -->
-      <h2 class="text-2xl font-bold text-green-600 mb-4">Paid Orders</h2>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-green-600">Paid Orders</h2>
+        <div>
+          <input type="search" id="paidSearchInput" placeholder="Search paid orders..." class="border rounded px-2 py-1 w-full" oninput="filterPaidOrders()" />
+        </div>
+      </div>
       <% if(paidOrders.length) { %>
-      <table class="min-w-full bg-white rounded-lg shadow overflow-hidden">
+      <table class="min-w-full bg-white rounded-lg shadow overflow-hidden" id="paidOrdersTable">
         <thead class="bg-green-500 text-white">
           <tr>
             <th class="py-3 px-4">Ref Number</th>
@@ -121,7 +125,7 @@ Continue Payment
             <th class="py-3 px-4">Action</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="paidOrdersBody">
           <% paidOrders.forEach(order => { %>
           <tr class="border-b">
             <td class="py-2 px-4 text-center font-semibold"><%= order.orderNumber %></td>
@@ -145,13 +149,11 @@ Continue Payment
       <% } %>
     </div>
   </div>
-
   <!-- Payment Modal -->
   <div id="paymentModal" class="modal-overlay" role="dialog" aria-modal="true" tabindex="-1">
     <div class="bg-white p-6 rounded shadow-lg max-w-md w-full">
       <h2 class="text-xl font-bold mb-4">Continue Order Payment</h2>
       <p id="orderInfo" class="mb-4"></p>
-
       <div class="mb-4">
         <label class="inline-flex items-center mr-4">
           <input type="radio" name="paymentMode" value="Cash" class="form-radio" checked>
@@ -162,12 +164,10 @@ Continue Payment
           <span class="ml-2">UPI</span>
         </label>
       </div>
-
       <div id="upiSection" class="mb-4 hidden">
         <p class="mb-2">Scan this QR to pay via UPI:</p>
         <img id="upiQr" src="" alt="UPI QR Code" class="mx-auto mb-2" />
       </div>
-
       <div class="flex justify-end">
         <button onclick="cancelOrder()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded mr-2">
           Cancel
@@ -182,7 +182,6 @@ Continue Payment
       </div>
     </div>
   </div>
-
   <!-- Items Modal -->
   <div id="itemsModal" class="modal-overlay" role="dialog" aria-modal="true" tabindex="-1">
     <div class="bg-white p-6 rounded shadow-lg max-w-md w-full">
@@ -193,34 +192,31 @@ Continue Payment
       </div>
     </div>
   </div>
-
   <script>
     // Hold both the unique order id (used on the server) and order number (display)
     let currentOrderId = "";
     let currentOrderNumber = "";
     let currentAmount = 0;
     const activeUpiId = "<%= (activeUpi && activeUpi.upiId) || '' %>";
-  
+
     // Payment Modal functions
-    // Now receives both orderId and orderNumber
     function openPaymentModal(orderId, orderNumber, amount) {
-      currentOrderId = orderId;         // Unique id for backend operations
-      currentOrderNumber = orderNumber; // Display number
+      currentOrderId = orderId;
+      currentOrderNumber = orderNumber;
       currentAmount = amount;
       document.getElementById('orderInfo').innerText =
         `Order Number: ${orderNumber} | Amount: ₹${amount.toFixed(2)}`;
-      // Reset radio buttons and UPI section
       document.querySelector('input[name="paymentMode"][value="Cash"]').checked = true;
       document.getElementById('upiSection').classList.add('hidden');
       document.getElementById('upiQr').src = "";
       document.getElementById('actionButton').innerText = "Proceed";
       document.getElementById('paymentModal').style.display = "flex";
     }
-  
+
     function closeModal() {
       document.getElementById('paymentModal').style.display = "none";
     }
-  
+
     async function initiateUpiTransaction() {
       if (!activeUpiId) {
         alert("Error: No active UPI ID configured.");
@@ -230,7 +226,6 @@ Continue Payment
         const res = await fetch("/orders/initiate-upi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          // Note: Pass the unique orderId (not orderNumber) to the back‑end
           body: JSON.stringify({
             orderId: currentOrderId,
             amount: currentAmount,
@@ -239,7 +234,6 @@ Continue Payment
         });
         const data = await res.json();
         if (data.success && data.qrCode) {
-          // data.qrCode is the base64 QR code image
           document.getElementById('upiQr').src = `data:image/png;base64,${data.qrCode}`;
           return true;
         } else {
@@ -252,13 +246,11 @@ Continue Payment
         return false;
       }
     }
-  
+
     function completeOrder() {
       const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
-      // Send the unique orderId in the payload
       const payload = { orderId: currentOrderId, paymentMode };
       if (paymentMode === "UPI") payload.upiId = activeUpiId;
-  
       fetch("/orders/complete-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -278,10 +270,9 @@ Continue Payment
         alert("Error completing order.");
       });
     }
-  
+
     function cancelOrder() {
       if (!confirm(`Cancel Order ${currentOrderNumber}?`)) return;
-      // Use the unique orderId for deletion.
       fetch(`/orders/delete/${currentOrderId}`, { method: "DELETE" })
         .then(r => r.json())
         .then(res => {
@@ -298,7 +289,7 @@ Continue Payment
           alert("Error cancelling order.");
         });
     }
-  
+
     async function handleAction() {
       const mode = document.querySelector('input[name="paymentMode"]:checked').value;
       if (mode === "Cash") {
@@ -306,18 +297,16 @@ Continue Payment
       } else {
         const upiSection = document.getElementById('upiSection');
         if (upiSection.classList.contains('hidden')) {
-          // First click: generate & display QR for UPI payment
           const ok = await initiateUpiTransaction();
           if (!ok) return;
           upiSection.classList.remove('hidden');
           document.getElementById('actionButton').innerText = "Complete Order";
         } else {
-          // Second click: finalize payment
           completeOrder();
         }
       }
     }
-  
+
     // Items Modal functions remain unchanged...
     function viewItems(orderNumber, items) {
       document.getElementById('modalOrderNumber').innerText = orderNumber;
@@ -328,7 +317,6 @@ Continue Payment
         ul.className = "list-disc list-inside";
         items.forEach(item => {
           const li = document.createElement('li');
-          // Ensure we display the name from foodItem if available
           li.innerText = `${(item.foodItem && item.foodItem.name) || "Item"} — Qty: ${item.quantity}`;
           ul.appendChild(li);
         });
@@ -338,9 +326,39 @@ Continue Payment
       }
       document.getElementById('itemsModal').style.display = "flex";
     }
-  
+
     function closeItemsModal() {
       document.getElementById('itemsModal').style.display = "none";
+    }
+
+    // ========================
+    // Search Functionality for Unpaid Orders
+    // ========================
+    function filterUnpaidOrders() {
+      const query = document.getElementById('unpaidSearchInput').value.toLowerCase();
+      const tableBody = document.getElementById('unpaidOrdersBody');
+      Array.from(tableBody.children).forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const matchesQuery = Array.from(cells).some(cell => {
+          return cell.textContent.toLowerCase().includes(query);
+        });
+        row.style.display = matchesQuery ? "" : "none";
+      });
+    }
+
+    // ========================
+    // Search Functionality for Paid Orders
+    // ========================
+    function filterPaidOrders() {
+      const query = document.getElementById('paidSearchInput').value.toLowerCase();
+      const tableBody = document.getElementById('paidOrdersBody');
+      Array.from(tableBody.children).forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const matchesQuery = Array.from(cells).some(cell => {
+          return cell.textContent.toLowerCase().includes(query);
+        });
+        row.style.display = matchesQuery ? "" : "none";
+      });
     }
   </script>  
 </body>

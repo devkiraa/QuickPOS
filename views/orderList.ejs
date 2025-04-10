@@ -22,9 +22,9 @@
       </div>
       <nav class="flex-1">
         <ul>
-          <li><a href="/dashboard"        class="block py-3 px-6 hover:bg-gray-50">Home</a></li>
-          <li><a href="/orders/list"      class="block py-3 px-6 text-green-600 font-semibold">Order List</a></li>
-          <li><a href="/orders/online"    class="block py-3 px-6 hover:bg-gray-50">Online Orders</a></li>
+          <li><a href="/dashboard" class="block py-3 px-6 hover:bg-gray-50">Home</a></li>
+          <li><a href="/orders/list" class="block py-3 px-6 text-green-600 font-semibold">Order List</a></li>
+          <li><a href="/orders/online" class="block py-3 px-6 hover:bg-gray-50">Online Orders</a></li>
           <li><a href="/dashboard/manage-items" class="block py-3 px-6 hover:bg-gray-50">Manage Items</a></li>
           <li><a href="/dashboard/settings" class="block py-3 px-6 hover:bg-gray-50">Settings</a></li>
           <li>
@@ -42,19 +42,24 @@
         </div>
       </div>
     </aside>
-
     <!-- Main Content -->
     <div class="flex-1 flex flex-col">
       <!-- Top Bar with Filter & Export -->
       <header class="bg-white shadow p-4 flex items-center justify-between">
         <h1 class="text-3xl text-green-700 font-bold">Order List</h1>
         <div class="flex items-center space-x-2">
+          <input type="search" id="searchInput" placeholder="Search orders..." class="border rounded px-2 py-1" oninput="filterOrdersBySearch()" />
           <input type="date" id="filterDate" class="border rounded px-2 py-1" />
           <button onclick="filterOrdersByDate()" class="bg-blue-500 text-white px-3 py-1 rounded">Filter</button>
           <button onclick="exportTableToCSV('orders.csv')" class="bg-green-500 text-white px-3 py-1 rounded">Export CSV</button>
+          <button onclick="refreshOrders()" class="bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+              <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.75 10h-2.08a6 6 0 1 1-1.51-6.32L14 11h6V5l-2.35 2.35z"/>
+            </svg>
+            Refresh
+          </button>
         </div>
       </header>
-
       <!-- Orders Table -->
       <div class="p-6 overflow-y-auto">
         <table class="min-w-full bg-white border rounded-lg shadow" id="ordersTable">
@@ -89,7 +94,6 @@
             <% }) %>
           </tbody>
         </table>
-
         <!-- Pagination Controls -->
         <div class="mt-4 flex justify-center items-center space-x-4">
           <button id="prevPage" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded" onclick="prevPage()">← Prev</button>
@@ -99,7 +103,6 @@
       </div>
     </div>
   </div>
-
   <!-- Modal for Order Modification -->
   <div id="modalOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
     <div id="modalContent" class="bg-white rounded p-6 w-96 relative">
@@ -144,7 +147,6 @@
       <button onclick="completeModification()" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Complete Modification</button>
     </div>
   </div>
-
   <!-- Modal for Viewing Order Items -->
   <div id="viewModalOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
     <div id="viewModalContent" class="bg-white rounded p-6 w-96 relative">
@@ -153,7 +155,6 @@
       <button onclick="closeViewModal()" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">Close</button>
     </div>
   </div>
-
   <!-- Inline Script for Order Functionality -->
   <script>
     // ========================
@@ -162,23 +163,20 @@
     let currentPage = 1;
     const rowsPerPage = 10;
     let allOrders = [];
-
     // ========================
     // Auto-Refresh Orders every 5 seconds (AJAX)
     // ========================
-    //async function refreshOrders() {
-      //try {
-        //const res = await fetch('/orders/list?ajax=true');
-        //const data = await res.json();
-        //if (data.orders) {
-          //setupPagination(data.orders);
-        //}
-      //} catch (err) {
-        //console.error("Error refreshing orders:", err);
-      //}
-    //}
-    //setInterval(refreshOrders, 5000);
-
+    async function refreshOrders() {
+      try {
+        const res = await fetch('/orders/list?ajax=true');
+        const data = await res.json();
+        if (data.orders) {
+          setupPagination(data.orders);
+        }
+      } catch (err) {
+        console.error("Error refreshing orders:", err);
+      }
+    }
     // ========================
     // Pagination Functions
     // ========================
@@ -213,9 +211,11 @@
         tableBody.appendChild(tr);
       });
       document.getElementById("pageInfo").innerText = `Page ${currentPage} of ${Math.ceil(allOrders.length / rowsPerPage)}`;
+      document.getElementById("prevPage").disabled = currentPage === 1;
+      document.getElementById("nextPage").disabled = currentPage === Math.ceil(allOrders.length / rowsPerPage);
     }
     function nextPage() {
-      if (currentPage * rowsPerPage < allOrders.length) {
+      if (currentPage < Math.ceil(allOrders.length / rowsPerPage)) {
         currentPage++;
         displayPage(currentPage);
       }
@@ -226,48 +226,6 @@
         displayPage(currentPage);
       }
     }
-
-    // ========================
-// CSV Export (Excluding Actions Column) using full data from allOrders
-// ========================
-function exportTableToCSV(filename) {
-  const csv = [];
-  // Header row with additional columns for Payment Mode and UPI ID
-  const header = ['No', 'Ref Number', 'Customer', 'Mobile', 'Total', 'Status', 'Payment Mode', 'UPI ID', 'Date & Time'];
-  csv.push(header.join(","));
-  
-  // Loop over allOrders (full data)
-  allOrders.forEach((order, index) => {
-    const row = [];
-    row.push(index + 1);
-    row.push(order.orderNumber);
-    row.push(order.customerName);
-    row.push(order.mobile);
-    // Use numeric value for the total (remove rupee symbol if present)
-    row.push(order.totalAmount);
-    row.push(order.status);
-    
-    // Add Payment Mode field (e.g., Cash or UPI)
-    row.push(order.paymentMode);
-    
-    // Check if payment mode is UPI then include the UPI ID, otherwise leave blank
-    row.push(order.paymentMode === "UPI" ? order.upiId : "");
-    
-    row.push(new Date(order.createdAt).toLocaleString());
-    csv.push(row.join(","));
-  });
-  
-  // Create a blob from CSV data and download it
-  const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
-  const downloadLink = document.createElement("a");
-  downloadLink.download = filename;
-  downloadLink.href = window.URL.createObjectURL(csvFile);
-  downloadLink.style.display = "none";
-  document.body.appendChild(downloadLink);
-  downloadLink.click();
-}
-
-
     // ========================
     // Date Filter Functionality
     // ========================
@@ -278,46 +236,74 @@ function exportTableToCSV(filename) {
         const orderDate = new Date(order.createdAt);
         return orderDate.toDateString() === selectedDate.toDateString();
       });
-      displayPageFromArray(filtered);
+      setupPagination(filtered);
     }
-    function displayPageFromArray(ordersArray) {
-      const tableBody = document.getElementById("orderTableBody");
-      tableBody.innerHTML = "";
-      ordersArray.forEach((order, index) => {
-        const tr = document.createElement("tr");
-        tr.className = "border-b";
-        tr.innerHTML = `
-          <td class="py-2 px-4 text-center">${index + 1}</td>
-          <td class="py-2 px-4 text-center font-semibold">${order.orderNumber}</td>
-          <td class="py-2 px-4">${order.customerName}</td>
-          <td class="py-2 px-4">${order.mobile}</td>
-          <td class="py-2 px-4 text-right font-semibold">₹${order.totalAmount.toFixed(2)}</td>
-          <td class="py-2 px-4 text-center">${order.status}</td>
-          <td class="py-2 px-4 text-center">${new Date(order.createdAt).toLocaleString()}</td>
-          <td class="py-2 px-4 text-center">
-            <button onclick="modifyOrder('${order.orderId}')" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">Modify</button>
-            <button onclick="deleteOrder('${order.orderId}')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 ml-2">Delete</button>
-            <button onclick="viewOrderItems('${order.orderId}')" class="bg-indigo-500 text-white px-3 py-1 rounded hover:bg-indigo-600 ml-2">View</button>
-          </td>
-        `;
-        tableBody.appendChild(tr);
+    // ========================
+    // Search Functionality
+    // ========================
+    function filterOrdersBySearch() {
+      const query = document.getElementById('searchInput').value.toLowerCase();
+      if(query === ''){
+        refreshOrders();
+      } else {
+        const filtered = allOrders.filter(order => {
+          return (
+            String(order.orderNumber).toLowerCase().includes(query) ||
+            String(order.customerName).toLowerCase().includes(query) ||
+            String(order.mobile).toLowerCase().includes(query) ||
+            String(order.totalAmount).toLowerCase().includes(query) ||
+            String(order.status).toLowerCase().includes(query)
+          );
+        });
+        setupPagination(filtered);
+      }
+    }
+    // ========================
+    // CSV Export (Excluding Actions Column) using full data from allOrders
+    // ========================
+    function exportTableToCSV(filename) {
+      const csv = [];
+      // Header row with additional columns for Payment Mode and UPI ID
+      const header = ['No', 'Ref Number', 'Customer', 'Mobile', 'Total', 'Status', 'Payment Mode', 'UPI ID', 'Date & Time'];
+      csv.push(header.join(","));
+      // Loop over allOrders (full data)
+      allOrders.forEach((order, index) => {
+        const row = [];
+        row.push(index + 1);
+        row.push(order.orderNumber);
+        row.push(order.customerName);
+        row.push(order.mobile);
+        // Use numeric value for the total (remove rupee symbol if present)
+        row.push(order.totalAmount);
+        row.push(order.status);
+        // Add Payment Mode field (e.g., Cash or UPI)
+        row.push(order.paymentMode);
+        // Check if payment mode is UPI then include the UPI ID, otherwise leave blank
+        row.push(order.paymentMode === "UPI" ? order.upiId : "");
+        row.push(new Date(order.createdAt).toLocaleString());
+        csv.push(row.join(","));
       });
-      document.getElementById("pageInfo").innerText = `Filtered (${ordersArray.length} orders)`;
+      // Create a blob from CSV data and download it
+      const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+      const downloadLink = document.createElement("a");
+      downloadLink.download = filename;
+      downloadLink.href = window.URL.createObjectURL(csvFile);
+      downloadLink.style.display = "none";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
     }
-
     // ========================
     // Modal & Modification Functions
     // ========================
     let currentOrderId = "";
     let baseTotal = 0;
     let orderItems = {};
-
     function modifyOrder(orderId) {
       currentOrderId = orderId;
       fetch(`/orders/details/${encodeURIComponent(orderId)}`)
         .then(response => response.json())
         .then(result => {
-          if(result.success) {
+          if (result.success) {
             document.getElementById('modalOrderId').innerText = orderId;
             baseTotal = (result.order.orderData && result.order.orderData.originalTotal) || result.order.totalAmount || 0;
             document.getElementById('originalTotal').innerText = baseTotal.toFixed(2);
@@ -333,19 +319,17 @@ function exportTableToCSV(filename) {
           alert("Error fetching order details.");
         });
     }
-
     document.getElementById('modalOverlay').addEventListener('click', function(e) {
       if (e.target === this) closeModal();
     });
-
     function closeModal() {
       document.getElementById('modalOverlay').classList.add('hidden');
       document.getElementById('modalOrderItems').innerHTML = "";
       document.getElementById('newItemSelect').selectedIndex = 0;
       document.getElementById('newItemQty').value = "1";
       document.getElementById('modalQRCode').innerHTML = "";
+      refreshOrders();
     }
-
     function updateModalTotals() {
       let addedTotal = 0;
       const modalOrderItemsDiv = document.getElementById('modalOrderItems');
@@ -370,7 +354,6 @@ function exportTableToCSV(filename) {
       let extraDue = newTotal - baseTotal;
       document.getElementById('extraDue').innerText = extraDue.toFixed(2);
     }
-
     function updateModalQuantity(id, delta) {
       if (orderItems[id]) {
         orderItems[id].quantity += delta;
@@ -378,7 +361,6 @@ function exportTableToCSV(filename) {
       }
       updateModalTotals();
     }
-
     function addNewItem() {
       const select = document.getElementById('newItemSelect');
       const qty = parseInt(document.getElementById('newItemQty').value);
@@ -401,7 +383,6 @@ function exportTableToCSV(filename) {
       select.selectedIndex = 0;
       document.getElementById('newItemQty').value = "1";
     }
-
     document.querySelectorAll('input[name="modalPaymentMode"]').forEach(radio => {
       radio.addEventListener('change', function() {
         if (this.value === 'UPI') {
@@ -417,7 +398,6 @@ function exportTableToCSV(filename) {
         }
       });
     });
-
     function generateModalQRCode(amount, upiId) {
       const upiUrl = `upi://pay?pa=${upiId}&pn=Canteen&am=${amount.toFixed(2)}&cu=INR`;
       document.getElementById('modalQRCode').innerHTML = "";
@@ -427,7 +407,6 @@ function exportTableToCSV(filename) {
         height: 128,
       });
     }
-
     function completeModification() {
       let extraDue = Math.max(parseFloat(document.getElementById('newTotal').innerText) - baseTotal, 0);
       const paymentMode = document.querySelector('input[name="modalPaymentMode"]:checked').value;
@@ -449,41 +428,39 @@ function exportTableToCSV(filename) {
           upiId: upiId
         })
       })
-      .then(response => response.json())
-      .then(result => {
-        if(result.success) {
-          showNotification("Order Modified: " + currentOrderId);
-          closeModal();
-          window.location.reload();
-        } else {
-          alert("Error modifying order: " + result.message);
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        alert("Error modifying order.");
-      });
-    }
-
-    function deleteOrder(orderId) {
-      if (confirm("Are you sure you want to delete order " + orderId + "?")) {
-        fetch(`/orders/delete/${encodeURIComponent(orderId)}`, { method: "DELETE" })
         .then(response => response.json())
         .then(result => {
-          if(result.success) {
-            showNotification("Order Deleted: " + orderId);
+          if (result.success) {
+            showNotification("Order Modified: " + currentOrderId);
+            closeModal();
             window.location.reload();
           } else {
-            alert("Error deleting order: " + result.message);
+            alert("Error modifying order: " + result.message);
           }
         })
         .catch(err => {
           console.error(err);
-          alert("Error deleting order.");
+          alert("Error modifying order.");
         });
+    }
+    function deleteOrder(orderId) {
+      if (confirm("Are you sure you want to delete order " + orderId + "?")) {
+        fetch(`/orders/delete/${encodeURIComponent(orderId)}`, { method: "DELETE" })
+          .then(response => response.json())
+          .then(result => {
+            if (result.success) {
+              showNotification("Order Deleted: " + orderId);
+              window.location.reload();
+            } else {
+              alert("Error deleting order: " + result.message);
+            }
+          })
+          .catch(err => {
+            console.error(err);
+            alert("Error deleting order.");
+          });
       }
     }
-
     function showNotification(message) {
       const notificationDiv = document.getElementById('notification');
       notificationDiv.innerText = message;
@@ -492,7 +469,6 @@ function exportTableToCSV(filename) {
         notificationDiv.classList.add('hidden');
       }, 3000);
     }
-
     // ========================
     // New: View Order Items Modal
     // ========================
@@ -504,7 +480,7 @@ function exportTableToCSV(filename) {
           const modal = document.getElementById('viewModalOverlay');
           const content = document.getElementById('viewOrderItems');
           content.innerHTML = "";
-          if(data.order.items && data.order.items.length > 0) {
+          if (data.order.items && data.order.items.length > 0) {
             const ul = document.createElement('ul');
             ul.className = "list-disc list-inside";
             data.order.items.forEach(item => {
@@ -528,6 +504,7 @@ function exportTableToCSV(filename) {
     function closeViewModal() {
       document.getElementById('viewModalOverlay').style.display = "none";
     }
+    window.onload(refreshOrders());
   </script>
 </body>
 </html>

@@ -37,20 +37,20 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Signup route
-router.post('/signup', async (req, res) => {
-  const { username, password } = req.body;
-  try {
-    // Hash the password with a salt round of 10
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ username, password: hashedPassword });
-    await newUser.save();
-    res.redirect('/dashboard/login');
-  } catch (error) {
-    console.error(error);
-    res.render('login', { error: 'Error creating account. Please try again.' });
-  }
-});
+// // Signup route
+// router.post('/signup', async (req, res) => {
+//   const { username, password } = req.body;
+//   try {
+//     // Hash the password with a salt round of 10
+//     const hashedPassword = await bcrypt.hash(password, 10);
+//     const newUser = new User({ username, password: hashedPassword });
+//     await newUser.save();
+//     res.redirect('/dashboard/login');
+//   } catch (error) {
+//     console.error(error);
+//     res.render('login', { error: 'Error creating account. Please try again.' });
+//   }
+// });
 
 router.get('/', async (req, res) => {
   if (!req.session.user) return res.redirect('/dashboard/login');
